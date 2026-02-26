@@ -1,0 +1,18 @@
+# build outputs
+*.o
+*.d
+*.bin
+*.lock
+/Software/build_output/
+
+# macOS metadata
+.DS_Store
+
+# local Rust build cache
+/Software/sandbox/AprilTag_PoseDetector/rust_pose_detector/target/
+
+# generated AprilTag image assets
+/Software/sandbox/AprilTag_PoseDetector/tools/_apriltag-imgs/
+
+# swp files
+*.swp

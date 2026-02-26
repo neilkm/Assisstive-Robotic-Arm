@@ -1,0 +1,125 @@
+# Assistive Robotic Arm - AI Context Prompt
+
+Use this as initial context for any AI assistant helping with this repository.
+
+## Project Summary
+
+This repository contains an ECE capstone project for an assistive robotic arm.
+
+- Mechanical assets live in `Mechanical/`.
+- Electrical assets live in `Electrical/`.
+- Software lives in `Software/`.
+
+Primary software work happens in `Software/Production/`.
+
+## Software Architecture
+
+Production modules:
+
+1. `Software/Production/nvidia_jetson`
+   - Rust module.
+   - `Cargo.toml` at module root.
+   - Source files:
+     - `src/lib.rs`
+     - `src/lib1.rs`
+   - Uses inline Rust unit tests (`#[cfg(test)]` + `#[test]`) in source files.
+
+2. `Software/Production/esp32_joystick`
+   - C module.
+   - Single shared library directory:
+     - `template_library/inc/`
+     - `template_library/src/`
+     - `template_library/test/`
+   - Contains both original template components in separate files:
+     - `esp_template_library.*`
+     - `esp_template_library1.*`
+   - Module Makefile aggregates all tests under `template_library/test/*_test.c`.
+
+3. `Software/Production/stm_nucleo`
+   - C module.
+   - Same structure pattern as ESP:
+     - `template_library/inc/`
+     - `template_library/src/`
+     - `template_library/test/`
+   - Contains:
+     - `stm_template_library.*`
+     - `stm_template_library1.*`
+
+Shared test infrastructure:
+
+- `Software/Production/test_framework/test_framework.h`
+- `Software/Production/test_framework/test_main.c`
+- `Software/Production/test_framework/module.mk`
+
+`module.mk` orchestrates both:
+- C test binaries built from `*_test.c`.
+- Rust test binaries discovered from `cargo test --no-run` output.
+
+## Build and Test Commands
+
+From repository root:
+
+```sh
+cd Software
+```
+
+Common commands:
+
+```sh
+make test              # Build + run all enabled production module tests
+make build-tests       # Build tests only
+make test-no-build     # Run previously built tests only
+make clean-tests       # Clean test artifacts
+```
+
+Flags:
+
+```sh
+BUILD_NVIDIA=true|false
+BUILD_ESP=true|false
+BUILD_NUCLEO=true|false
+SHOW_BUILD_OUTPUT=true|false
+RUN_TESTS=true|false
+```
+
+Examples:
+
+```sh
+make test BUILD_NVIDIA=false
+make test RUN_TESTS=false
+```
+
+## Output and Artifacts
+
+Generated outputs:
+
+- `Software/build_output/production/<module>/unit_tests/`
+- Combined runner:
+  - `Software/build_output/production/run_all_tests.sh`
+
+Unified test output format across C and Rust:
+
+- `[RUN] Case: [...]`
+- `[OK ] Case: [...]` or `[FAIL] Case: [...]`
+- Summary style:
+  - `[Ran X tests from Y modules. Z/X Passed.]`
+
+## Documentation and Commenting Conventions
+
+- Production code includes Doxygen-style comments for:
+  - structs/classes
+  - functions/methods
+  - test cases
+- Keep comments concise and behavior-focused.
+
+## Working Guidance for AI
+
+When making changes:
+
+1. Preserve module build/test behavior for all three production modules.
+2. Keep ESP/STM in single-library layout (`template_library`) with separate files.
+3. Keep NVIDIA tests inline in Rust source files.
+4. Ensure `make -C Software/Production test` still passes.
+5. Avoid committing generated artifacts under `Software/build_output/`.
+
+If uncertain, prioritize minimal, testable changes and report exact files changed.

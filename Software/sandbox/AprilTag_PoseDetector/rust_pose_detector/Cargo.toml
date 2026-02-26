@@ -1,0 +1,11 @@
+[package]
+name = "rust_pose_detector"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1"
+nalgebra = "0.32"
+opencv = { version = "0.97.2", default-features = false, features = ["clang-runtime", "highgui", "imgproc", "videoio", "calib3d", "aruco", "objdetect"] }
+serde = { version = "1", features = ["derive"] }
+serde_yaml = "0.9"
