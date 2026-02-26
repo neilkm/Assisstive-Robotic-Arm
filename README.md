@@ -7,6 +7,13 @@ ECE129 Capstone project repository for the assistive robotic arm software and me
 - `AI_CONTEXT`: a concise, ready-to-paste project context prompt for browser-based AI assistants.
 - Use it to quickly provide architecture, build/test workflow, and repository conventions before asking implementation questions.
 
+## Branch Management
+
+- `master` is the protected integration branch.
+- Create feature branches for all work (example: `feature/<topic>` or `fix/<topic>`).
+- Open a pull request into `master`; do not push directly to `master`.
+- CI workflow `.github/workflows/ci-master.yml` runs on every push/PR targeting `master` and must pass before merge.
+
 ## Functional Directory Structure
 
 - `Software/`: embedded and host-side software. See `Software/README.md` for structure, build, and test details.
