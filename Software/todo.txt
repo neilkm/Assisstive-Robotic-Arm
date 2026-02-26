@@ -1,0 +1,33 @@
+requirements per module:
+
+Production/
+
+-esp:
+   
+  in: bluetooth connection confirmation, msg received conf
+  out: current state of the buttons being pressed over bluetooth
+
+-nucleo:
+   
+  in: uart connection confirmation, msg received conf
+    , desired xyz position, desired gripper force, shake command
+  out: current xyz position, force sensor reading, gripper clamping position, 
+    shaking state, msg received conf
+
+-nvidia:
+   
+  in: bluetooth: msg received conf, remote controller buttons state
+    uart: msg received conf, current xyz position, force sensor reading, gripper clamping
+      position, shaking state
+      cameras: two camera pixel data
+
+  out: bluetooth: msg received conf
+    uart: msg received conf, desired xyz position, desired gripper clamp position, shake command
+
+
+sandbox/
+
+-robot-arm-3d-sim: 
+   
+  set dimensions correctly, get final inverse kinematics equation, create test harness with 
+  points where objects and target can realisticaly be located.
