@@ -16,3 +16,7 @@
 
 # swp files
 *.swp
+
+# python
+*.venv/
+*__pycache__/

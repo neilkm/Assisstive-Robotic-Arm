@@ -1,0 +1,83 @@
+robot:
+  name: "assistive_arm"
+  # Degrees of freedom (DOF) are inferred from the number of joint entries.
+  # Each joint block includes:
+  # - initial_deg: current/starting angle at app launch
+  # - min_deg/max_deg: full allowed rotation limits
+  # - rotation_axis_local: axis label for readability (DH implementation assumes revolute about local z)
+  joints:
+    - name: "joint_1"
+      type: "revolute"
+      rotation_axis_local: "z"
+      # Geometry (Standard DH, meters/radians).
+      a_m: 0.0
+      alpha_rad: 1.57079632679
+      d_m: 0.140
+      theta_offset_rad: 0.0
+      # Joint angle definitions (degrees).
+      initial_deg: 0.0
+      min_deg: -90.0
+      max_deg: 90.0
+
+    - name: "joint_2"
+      type: "revolute"
+      rotation_axis_local: "z"
+      a_m: 0.280
+      alpha_rad: 0.0
+      d_m: 0.0
+      theta_offset_rad: 0.0
+      initial_deg: 0.0
+      min_deg: -90.0
+      max_deg: 90.0
+
+    - name: "joint_3"
+      type: "revolute"
+      rotation_axis_local: "z"
+      a_m: 0.240
+      alpha_rad: 0.0
+      d_m: 0.0
+      theta_offset_rad: 0.0
+      initial_deg: 0.0
+      min_deg: -90.0
+      max_deg: 90.0
+
+    - name: "joint_4"
+      type: "revolute"
+      rotation_axis_local: "z"
+      a_m: 0.0
+      alpha_rad: 1.57079632679
+      d_m: 0.120
+      theta_offset_rad: 0.0
+      initial_deg: 0.0
+      min_deg: -90.0
+      max_deg: 90.0
+
+    - name: "joint_5"
+      type: "revolute"
+      rotation_axis_local: "z"
+      a_m: 0.0
+      alpha_rad: -1.57079632679
+      d_m: 0.0
+      theta_offset_rad: 0.0
+      initial_deg: 0.0
+      min_deg: -90.0
+      max_deg: 90.0
+
+    - name: "joint_6"
+      type: "revolute"
+      rotation_axis_local: "z"
+      a_m: 0.0
+      alpha_rad: 0.0
+      d_m: 0.100
+      theta_offset_rad: 0.0
+      initial_deg: 0.0
+      min_deg: -90.0
+      max_deg: 90.0
+
+simulation:
+  ik:
+    max_iters: 120
+    damping: 0.04
+    tolerance_m: 0.001
+  control:
+    dt_s: 0.01
