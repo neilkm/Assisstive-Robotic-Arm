@@ -1,6 +1,6 @@
 # Assisstive-Robotic-Arm
 
-ECE129 Capstone project repository for the assistive robotic arm software and mechanical assets.
+ECE129 Capstone project repository for the assistive robotic arm software, electrical, and mechanical assets.
 
 ## AI Context
 
