@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCENE_PATH="${SCRIPT_DIR}/scene/arm_scene.ttt"
-FALLBACK_SCENE="${SCRIPT_DIR}/SceneV1.ttt"
+FALLBACK_SCENE="${SCRIPT_DIR}/scene/SceneV1.ttt"
 
 if [[ ! -f "${SCENE_PATH}" ]]; then
     SCENE_PATH="${FALLBACK_SCENE}"
