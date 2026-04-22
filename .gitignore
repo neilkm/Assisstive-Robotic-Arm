@@ -21,4 +21,11 @@
 __pycache__/
 *.pyc
 *.venv/
+/.venv/
 */__pycache__/
+**/__pycache__/
+
+# local hardware CI laptop state
+/Deployment/WindowsTestLaptop/.hwci/
+/Deployment/WindowsTestLaptop/runs/
+/Deployment/WindowsTestLaptop/config/hwci.yaml

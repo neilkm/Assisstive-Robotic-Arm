@@ -1,0 +1,49 @@
+repo:
+  path: "."
+  remote: "origin"
+  branch: "main"
+
+controller:
+  poll_interval_seconds: 60
+  require_tag: "hw-ci"
+  dry_run: true
+  work_dir: "Deployment/WindowsTestLaptop/runs"
+  state_file: "Deployment/WindowsTestLaptop/.hwci/state.json"
+
+devices:
+  stm32:
+    enabled: true
+    usbipd_busid: "CHANGE_ME_STM32_BUSID"
+    serial_port: "/dev/ttyACM0"
+    build:
+      test: "make -C Software test BUILD_ESP=false BUILD_NUCLEO=true BUILD_NVIDIA=false"
+      prod: "make -C Software build-tests BUILD_ESP=false BUILD_NUCLEO=true BUILD_NVIDIA=false"
+    flash: "echo TODO: configure STM32 flash command for {serial_port}"
+    reset: "echo TODO: configure STM32 reset command"
+
+  esp32:
+    enabled: true
+    usbipd_busid: "CHANGE_ME_ESP32_BUSID"
+    serial_port: "/dev/ttyUSB0"
+    build:
+      test: "make -C Software test BUILD_ESP=true BUILD_NUCLEO=false BUILD_NVIDIA=false"
+      prod: "make -C Software build-tests BUILD_ESP=true BUILD_NUCLEO=false BUILD_NVIDIA=false"
+    flash: "echo TODO: configure ESP32 flash command for {serial_port}"
+    reset: "echo TODO: configure ESP32 reset command"
+
+  jetson:
+    enabled: true
+    usbipd_busid: "CHANGE_ME_JETSON_BUSID"
+    serial_port: "/dev/ttyUSB1"
+    build:
+      test: "make -C Software test BUILD_ESP=false BUILD_NUCLEO=false BUILD_NVIDIA=true"
+      prod: "make -C Software build-tests BUILD_ESP=false BUILD_NUCLEO=false BUILD_NVIDIA=true"
+    flash: "echo TODO: configure Jetson deploy command. Prefer SSH over USB Ethernet if available."
+    reset: "echo TODO: configure Jetson reset or reboot command"
+
+tests:
+  smoke:
+    command: "python3 -m pytest Deployment/WindowsTestLaptop/tests/hil -m smoke --junitxml={run_dir}/junit-smoke.xml"
+  integration:
+    command: "python3 -m pytest Deployment/WindowsTestLaptop/tests/hil --junitxml={run_dir}/junit-integration.xml"
+

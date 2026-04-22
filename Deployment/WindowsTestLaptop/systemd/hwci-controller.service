@@ -1,0 +1,16 @@
+[Unit]
+Description=Assistive Robotic Arm hardware CI controller
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=__REPO_ROOT__
+Environment=PYTHONUNBUFFERED=1
+ExecStart=__PYTHON_BIN__ __REPO_ROOT__/Deployment/WindowsTestLaptop/app/hwci_controller.py --config __CONFIG__ --poll
+Restart=always
+RestartSec=15
+
+[Install]
+WantedBy=default.target
+
