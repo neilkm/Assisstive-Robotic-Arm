@@ -1,4 +1,3 @@
-#include <opencv2/freetype.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 
@@ -6,7 +5,6 @@
 #include <iostream>
 #include <optional>
 #include <string>
-#include <utility>
 #include <vector>
 
 namespace {
@@ -14,11 +12,6 @@ namespace {
 struct StateDefinition {
     std::string name;
     std::vector<std::string> actions;
-};
-
-struct FontRenderer {
-    cv::Ptr<cv::freetype::FreeType2> freetype;
-    bool useArial = false;
 };
 
 constexpr int kWindowWidth = 1280;
@@ -41,57 +34,22 @@ std::vector<StateDefinition> buildStates() {
     };
 }
 
-FontRenderer createFontRenderer() {
-    const std::vector<std::string> fontCandidates = {
-        "/usr/share/fonts/truetype/msttcorefonts/Arial.ttf",
-        "/usr/share/fonts/truetype/msttcorefonts/arial.ttf",
-        "/System/Library/Fonts/Supplemental/Arial.ttf",
-        "/Library/Fonts/Arial.ttf",
-    };
-
-    FontRenderer renderer;
-
-    try {
-        renderer.freetype = cv::freetype::createFreeType2();
-        for (const std::string& fontPath : fontCandidates) {
-            try {
-                renderer.freetype->loadFontData(fontPath, 0);
-                renderer.useArial = true;
-                return renderer;
-            } catch (const cv::Exception&) {
-            }
-        }
-    } catch (const cv::Exception&) {
-    }
-
-    renderer.freetype.release();
-    renderer.useArial = false;
-    return renderer;
-}
-
 void drawText(cv::Mat& frame,
-              const FontRenderer& fontRenderer,
               const std::string& text,
               cv::Point origin,
               int fontHeight,
               const cv::Scalar& color,
               int thickness) {
-    if (fontRenderer.useArial && fontRenderer.freetype) {
-        fontRenderer.freetype->putText(frame, text, origin, fontHeight, color, thickness, cv::LINE_AA, true);
-        return;
-    }
-
     const double scale = static_cast<double>(fontHeight) / 30.0;
     cv::putText(frame, text, origin, cv::FONT_HERSHEY_DUPLEX, scale, color, thickness, cv::LINE_AA);
 }
 
-void drawHeader(cv::Mat& frame, const FontRenderer& fontRenderer, const StateDefinition& state) {
-    drawText(frame, fontRenderer, "Current state", {60, 90}, 30, {230, 240, 255}, 2);
-    drawText(frame, fontRenderer, state.name, {60, 150}, 48, {80, 220, 255}, 3);
+void drawHeader(cv::Mat& frame, const StateDefinition& state) {
+    drawText(frame, "Current state", {60, 90}, 30, {230, 240, 255}, 2);
+    drawText(frame, state.name, {60, 150}, 48, {80, 220, 255}, 3);
 
-    drawText(frame, fontRenderer, "Allowed actions", {60, 245}, 30, {230, 240, 255}, 2);
+    drawText(frame, "Allowed actions", {60, 245}, 30, {230, 240, 255}, 2);
     drawText(frame,
-             fontRenderer,
              "Arrow keys: change selected action    Enter: trigger action    i: reset to Init    q or ESC: quit",
              {60, 680},
              24,
@@ -99,10 +57,7 @@ void drawHeader(cv::Mat& frame, const FontRenderer& fontRenderer, const StateDef
              2);
 }
 
-void drawActionList(cv::Mat& frame,
-                    const FontRenderer& fontRenderer,
-                    const StateDefinition& state,
-                    std::size_t selectedAction) {
+void drawActionList(cv::Mat& frame, const StateDefinition& state, std::size_t selectedAction) {
     const int x = 60;
     const int top = 285;
     const int rowHeight = 46;
@@ -119,7 +74,7 @@ void drawActionList(cv::Mat& frame,
 
         cv::rectangle(frame, actionRect, fillColor, cv::FILLED);
         cv::rectangle(frame, actionRect, borderColor, 2);
-        drawText(frame, fontRenderer, state.actions[i], {x + 16, y + 25}, 26, textColor, 2);
+        drawText(frame, state.actions[i], {x + 16, y + 25}, 26, textColor, 2);
     }
 }
 
@@ -217,7 +172,6 @@ int main() {
         return EXIT_FAILURE;
     }
 
-    const FontRenderer fontRenderer = createFontRenderer();
     std::size_t stateIndex = 0;
     std::size_t actionIndex = 0;
 
@@ -230,8 +184,8 @@ int main() {
             actionIndex = 0;
         }
 
-        drawHeader(frame, fontRenderer, currentState);
-        drawActionList(frame, fontRenderer, currentState, actionIndex);
+        drawHeader(frame, currentState);
+        drawActionList(frame, currentState, actionIndex);
         cv::imshow(kWindowName, frame);
 
         const int rawKey = cv::waitKeyEx(0);

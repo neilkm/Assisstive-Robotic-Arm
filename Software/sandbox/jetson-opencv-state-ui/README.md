@@ -12,8 +12,6 @@ The UI now behaves as a state machine:
 - `Enter` triggers the highlighted action and transitions to the next state,
 - `i` resets the machine to `Init`.
 
-Text is rendered in Arial when `Arial.ttf` is available on the system. If Arial is not installed, the app falls back to OpenCV's built-in font so it still runs.
-
 ## Controls
 
 - `Arrow keys`: move the highlighted action
