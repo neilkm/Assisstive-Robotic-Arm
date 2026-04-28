@@ -1,9 +1,12 @@
 #include <opencv2/highgui.hpp>
+#include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 
 #include <cstdlib>
+#include <filesystem>
 #include <iostream>
 #include <optional>
+#include <unordered_map>
 #include <string>
 #include <vector>
 
@@ -21,6 +24,22 @@ constexpr int kKeyUp = 1001;
 constexpr int kKeyDown = 1002;
 constexpr int kKeyLeft = 1003;
 constexpr int kKeyRight = 1004;
+
+std::optional<std::string> imageFilenameForState(const std::string& stateName) {
+    if (stateName == "Init") {
+        return "init.png";
+    }
+    if (stateName == "Selecting spice") {
+        return "selectspice.png";
+    }
+    if (stateName == "Spice selected") {
+        return "spiceconfirm.png";
+    }
+    if (stateName == "Shaking spice into pot") {
+        return "usingspice.png";
+    }
+    return std::nullopt;
+}
 
 std::vector<StateDefinition> buildStates() {
     return {
@@ -76,6 +95,42 @@ void drawActionList(cv::Mat& frame, const StateDefinition& state, std::size_t se
         cv::rectangle(frame, actionRect, borderColor, 2);
         drawText(frame, state.actions[i], {x + 16, y + 25}, 26, textColor, 2);
     }
+}
+
+void drawStateImage(cv::Mat& frame,
+                    const std::string& stateName,
+                    const std::unordered_map<std::string, cv::Mat>& stateImages) {
+    const cv::Rect panelRect(650, 70, 580, 590);
+    const cv::Scalar panelFill(32, 36, 44);
+    const cv::Scalar panelBorder(70, 78, 92);
+    cv::rectangle(frame, panelRect, panelFill, cv::FILLED);
+    cv::rectangle(frame, panelRect, panelBorder, 2);
+
+    drawText(frame, "State image", {670, 110}, 30, {230, 240, 255}, 2);
+
+    const auto imageIt = stateImages.find(stateName);
+    if (imageIt == stateImages.end() || imageIt->second.empty()) {
+        drawText(frame, "No image yet for this state", {700, 340}, 28, {190, 198, 208}, 2);
+        return;
+    }
+
+    const cv::Mat& sourceImage = imageIt->second;
+    const cv::Rect imageArea(670, 130, 540, 500);
+    const double scaleX = static_cast<double>(imageArea.width) / static_cast<double>(sourceImage.cols);
+    const double scaleY = static_cast<double>(imageArea.height) / static_cast<double>(sourceImage.rows);
+    const double scale = std::min(scaleX, scaleY);
+
+    cv::Mat resizedImage;
+    cv::resize(sourceImage,
+               resizedImage,
+               cv::Size(),
+               scale,
+               scale,
+               scale < 1.0 ? cv::INTER_AREA : cv::INTER_LINEAR);
+
+    const int x = imageArea.x + (imageArea.width - resizedImage.cols) / 2;
+    const int y = imageArea.y + (imageArea.height - resizedImage.rows) / 2;
+    resizedImage.copyTo(frame(cv::Rect(x, y, resizedImage.cols, resizedImage.rows)));
 }
 
 int normalizeKey(int key) {
@@ -165,11 +220,35 @@ std::optional<std::string> nextStateForAction(const std::string& stateName, cons
 
 }  // namespace
 
-int main() {
+int main(int argc, char** argv) {
     std::vector<StateDefinition> states = buildStates();
     if (states.empty()) {
         std::cerr << "No states configured." << std::endl;
         return EXIT_FAILURE;
+    }
+
+    std::filesystem::path projectDir = std::filesystem::current_path();
+    if (argc > 0) {
+        try {
+            const std::filesystem::path binaryPath = std::filesystem::canonical(argv[0]);
+            projectDir = binaryPath.parent_path().parent_path();
+        } catch (const std::filesystem::filesystem_error&) {
+        }
+    }
+
+    const std::filesystem::path imageDir = projectDir / "robotarm state images";
+    std::unordered_map<std::string, cv::Mat> stateImages;
+    for (const StateDefinition& state : states) {
+        const std::optional<std::string> imageFilename = imageFilenameForState(state.name);
+        if (!imageFilename.has_value()) {
+            continue;
+        }
+
+        const std::filesystem::path imagePath = imageDir / imageFilename.value();
+        cv::Mat image = cv::imread(imagePath.string(), cv::IMREAD_COLOR);
+        if (!image.empty()) {
+            stateImages.emplace(state.name, image);
+        }
     }
 
     std::size_t stateIndex = 0;
@@ -186,6 +265,7 @@ int main() {
 
         drawHeader(frame, currentState);
         drawActionList(frame, currentState, actionIndex);
+        drawStateImage(frame, currentState.name, stateImages);
         cv::imshow(kWindowName, frame);
 
         const int rawKey = cv::waitKeyEx(0);
