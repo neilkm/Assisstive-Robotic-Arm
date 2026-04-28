@@ -3,15 +3,15 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-SERVICE_TEMPLATE="$REPO_ROOT/Deployment/WindowsTestLaptop/systemd/hwci-controller.service"
+SERVICE_TEMPLATE="$REPO_ROOT/Deployment/JetsonController/systemd/hwci-controller.service"
 SERVICE_DIR="$HOME/.config/systemd/user"
 SERVICE_FILE="$SERVICE_DIR/hwci-controller.service"
 PYTHON_BIN="${PYTHON_BIN:-$REPO_ROOT/.venv/bin/python}"
-CONFIG="${CONFIG:-$REPO_ROOT/Deployment/WindowsTestLaptop/config/hwci.yaml}"
+CONFIG="${CONFIG:-$REPO_ROOT/Deployment/JetsonController/config/hwci.yaml}"
 
 if [ ! -f "$CONFIG" ]; then
   echo "Missing local config: $CONFIG"
-  echo "Create it from Deployment/WindowsTestLaptop/config/hwci.example.yaml first."
+  echo "Create it from Deployment/JetsonController/config/hwci.example.yaml first."
   exit 1
 fi
 
@@ -31,4 +31,3 @@ fi
 
 echo "Installed and started user service: hwci-controller"
 echo "Check status with: systemctl --user status hwci-controller"
-

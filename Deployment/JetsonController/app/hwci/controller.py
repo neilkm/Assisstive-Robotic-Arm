@@ -25,7 +25,7 @@ def load_config(path):
     if yaml is None:
         raise HardwareCiError(
             "Missing Python dependency: PyYAML. Run "
-            "Deployment/WindowsTestLaptop/scripts/setup_wsl.sh first."
+            "Deployment/JetsonController/scripts/setup_jetson.sh first."
         )
 
     config_path = Path(path).expanduser().resolve()
@@ -116,9 +116,9 @@ class HardwareCiController:
         self.branch = config.get("repo", {}).get("branch", "main")
         self.require_tag = controller_config.get("require_tag", "hw-ci")
         self.poll_interval_seconds = int(controller_config.get("poll_interval_seconds", 60))
-        self.work_dir = self._repo_relative(controller_config.get("work_dir", "Deployment/WindowsTestLaptop/runs"))
+        self.work_dir = self._repo_relative(controller_config.get("work_dir", "Deployment/JetsonController/runs"))
         self.state_file = self._repo_relative(
-            controller_config.get("state_file", "Deployment/WindowsTestLaptop/.hwci/state.json")
+            controller_config.get("state_file", "Deployment/JetsonController/.hwci/state.json")
         )
 
     def _repo_relative(self, value):
@@ -260,11 +260,9 @@ class HardwareCiController:
             "run_dir": str(run_dir),
             "target": target or "",
             "serial_port": "",
-            "usbipd_busid": "",
         }
         if device:
             values["serial_port"] = str(device.get("serial_port", ""))
-            values["usbipd_busid"] = str(device.get("usbipd_busid", ""))
 
         formatted = command
         for key, value in values.items():
@@ -293,10 +291,10 @@ class HardwareCiController:
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="Windows/WSL hardware CI controller")
+    parser = argparse.ArgumentParser(description="Jetson hardware CI controller")
     parser.add_argument(
         "--config",
-        default="Deployment/WindowsTestLaptop/config/hwci.yaml",
+        default="Deployment/JetsonController/config/hwci.yaml",
         help="Path to local hardware CI YAML config",
     )
     parser.add_argument("--poll", action="store_true", help="Poll the configured remote branch forever")

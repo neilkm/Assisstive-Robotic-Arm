@@ -7,13 +7,12 @@ controller:
   poll_interval_seconds: 60
   require_tag: "hw-ci"
   dry_run: true
-  work_dir: "Deployment/WindowsTestLaptop/runs"
-  state_file: "Deployment/WindowsTestLaptop/.hwci/state.json"
+  work_dir: "Deployment/JetsonController/runs"
+  state_file: "Deployment/JetsonController/.hwci/state.json"
 
 devices:
   stm32:
     enabled: true
-    usbipd_busid: "CHANGE_ME_STM32_BUSID"
     serial_port: "/dev/ttyACM0"
     build:
       test: "make -C Software test BUILD_ESP=false BUILD_NUCLEO=true BUILD_NVIDIA=false"
@@ -23,7 +22,6 @@ devices:
 
   esp32:
     enabled: true
-    usbipd_busid: "CHANGE_ME_ESP32_BUSID"
     serial_port: "/dev/ttyUSB0"
     build:
       test: "make -C Software test BUILD_ESP=true BUILD_NUCLEO=false BUILD_NVIDIA=false"
@@ -33,17 +31,15 @@ devices:
 
   jetson:
     enabled: true
-    usbipd_busid: "CHANGE_ME_JETSON_BUSID"
-    serial_port: "/dev/ttyUSB1"
+    serial_port: ""
     build:
       test: "make -C Software test BUILD_ESP=false BUILD_NUCLEO=false BUILD_NVIDIA=true"
       prod: "make -C Software build-tests BUILD_ESP=false BUILD_NUCLEO=false BUILD_NVIDIA=true"
-    flash: "echo TODO: configure Jetson deploy command. Prefer SSH over USB Ethernet if available."
-    reset: "echo TODO: configure Jetson reset or reboot command"
+    flash: "echo Jetson target runs locally; no flash step configured"
+    reset: "echo Jetson target runs locally; no reset step configured"
 
 tests:
   smoke:
-    command: "python3 -m pytest Deployment/WindowsTestLaptop/tests/hil -m smoke --junitxml={run_dir}/junit-smoke.xml"
+    command: "python3 -m pytest Deployment/JetsonController/tests/hil -m smoke --junitxml={run_dir}/junit-smoke.xml"
   integration:
-    command: "python3 -m pytest Deployment/WindowsTestLaptop/tests/hil --junitxml={run_dir}/junit-integration.xml"
-
+    command: "python3 -m pytest Deployment/JetsonController/tests/hil --junitxml={run_dir}/junit-integration.xml"

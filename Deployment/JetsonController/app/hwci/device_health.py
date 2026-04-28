@@ -22,10 +22,8 @@ def collect_device_status(config):
 
         statuses[name] = {
             "enabled": bool(device.get("enabled", True)),
-            "usbipd_busid": device.get("usbipd_busid"),
             "serial_port": serial_port,
             "serial_present": exists,
         }
 
     return statuses
-

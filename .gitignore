@@ -25,7 +25,7 @@ __pycache__/
 */__pycache__/
 **/__pycache__/
 
-# local hardware CI laptop state
-/Deployment/WindowsTestLaptop/.hwci/
-/Deployment/WindowsTestLaptop/runs/
-/Deployment/WindowsTestLaptop/config/hwci.yaml
+# local hardware CI controller state
+/Deployment/JetsonController/.hwci/
+/Deployment/JetsonController/runs/
+/Deployment/JetsonController/config/hwci.yaml
