@@ -115,8 +115,6 @@ void drawStateImage(cv::Mat& frame,
     cv::rectangle(frame, panelRect, panelFill, cv::FILLED);
     cv::rectangle(frame, panelRect, panelBorder, 2);
 
-    drawText(frame, "State image", {670, 110}, 30, {230, 240, 255}, 2);
-
     const auto imageIt = stateImages.find(stateName);
     if (imageIt == stateImages.end() || imageIt->second.empty()) {
         drawText(frame, "No image yet for this state", {700, 340}, 28, {190, 198, 208}, 2);
@@ -124,7 +122,7 @@ void drawStateImage(cv::Mat& frame,
     }
 
     const cv::Mat& sourceImage = imageIt->second;
-    const cv::Rect imageArea(670, 130, 540, 500);
+    const cv::Rect imageArea(670, 100, 540, 530);
     const double scaleX = static_cast<double>(imageArea.width) / static_cast<double>(sourceImage.cols);
     const double scaleY = static_cast<double>(imageArea.height) / static_cast<double>(sourceImage.rows);
     const double scale = std::min(scaleX, scaleY);
