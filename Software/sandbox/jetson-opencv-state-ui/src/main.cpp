@@ -38,6 +38,15 @@ std::optional<std::string> imageFilenameForState(const std::string& stateName) {
     if (stateName == "Shaking spice into pot") {
         return "usingspice.png";
     }
+    if (stateName == "Selecting utensil") {
+        return "selectutensil.png";
+    }
+    if (stateName == "Utensil selected") {
+        return "confirmutensil.png";
+    }
+    if (stateName == "Using utensil") {
+        return "usingutensil.png";
+    }
     return std::nullopt;
 }
 
@@ -69,7 +78,7 @@ void drawHeader(cv::Mat& frame, const StateDefinition& state) {
 
     drawText(frame, "Allowed actions", {60, 245}, 30, {230, 240, 255}, 2);
     drawText(frame,
-             "Arrow keys: change selected action    Enter: trigger action    i: reset to Init    q or ESC: quit",
+             "Arrow keys: change selected action    Enter: trigger action    q or ESC: quit",
              {60, 680},
              24,
              {175, 185, 195},
@@ -273,12 +282,6 @@ int main(int argc, char** argv) {
 
         if (key == 27 || key == 'q' || key == 'Q') {
             break;
-        }
-
-        if (key == 'i' || key == 'I') {
-            stateIndex = findStateIndex(states, "Init");
-            actionIndex = 0;
-            continue;
         }
 
         if ((key == kKeyUp || key == kKeyLeft || key == 'j' || key == 'J') && !currentState.actions.empty()) {
