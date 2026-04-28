@@ -7,10 +7,19 @@ It opens a UI window that shows:
 - the list of allowed actions for that state,
 - one highlighted action at a time.
 
+The UI now behaves as a state machine:
+- arrow keys move the highlighted action,
+- `Enter` triggers the highlighted action and transitions to the next state,
+- `i` resets the machine to `Init`.
+
+Text is rendered in Arial when `Arial.ttf` is available on the system. If Arial is not installed, the app falls back to OpenCV's built-in font so it still runs.
+
 ## Controls
 
-- `Up` / `Down`: cycle through the configured states
-- `j` / `k`: move the highlighted action within the current state's allowed actions
+- `Arrow keys`: move the highlighted action
+- `Enter`: trigger the highlighted action and transition states
+- `i`: reset to `Init`
+- `j` / `k`: alternate action navigation keys
 - `q` or `Esc`: quit
 
 ## States

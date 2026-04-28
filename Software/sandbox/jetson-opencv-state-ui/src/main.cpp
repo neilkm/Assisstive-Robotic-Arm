@@ -1,9 +1,12 @@
+#include <opencv2/freetype.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 
 #include <cstdlib>
 #include <iostream>
+#include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -13,11 +16,18 @@ struct StateDefinition {
     std::vector<std::string> actions;
 };
 
+struct FontRenderer {
+    cv::Ptr<cv::freetype::FreeType2> freetype;
+    bool useArial = false;
+};
+
 constexpr int kWindowWidth = 1280;
 constexpr int kWindowHeight = 720;
 constexpr char kWindowName[] = "Jetson Nano State UI";
 constexpr int kKeyUp = 1001;
 constexpr int kKeyDown = 1002;
+constexpr int kKeyLeft = 1003;
+constexpr int kKeyRight = 1004;
 
 std::vector<StateDefinition> buildStates() {
     return {
@@ -31,16 +41,68 @@ std::vector<StateDefinition> buildStates() {
     };
 }
 
-void drawHeader(cv::Mat& frame, const StateDefinition& state) {
-    cv::putText(frame, "Current state", {60, 90}, cv::FONT_HERSHEY_DUPLEX, 1.0, {230, 240, 255}, 2, cv::LINE_AA);
-    cv::putText(frame, state.name, {60, 150}, cv::FONT_HERSHEY_DUPLEX, 1.6, {80, 220, 255}, 3, cv::LINE_AA);
+FontRenderer createFontRenderer() {
+    const std::vector<std::string> fontCandidates = {
+        "/usr/share/fonts/truetype/msttcorefonts/Arial.ttf",
+        "/usr/share/fonts/truetype/msttcorefonts/arial.ttf",
+        "/System/Library/Fonts/Supplemental/Arial.ttf",
+        "/Library/Fonts/Arial.ttf",
+    };
 
-    cv::putText(frame, "Allowed actions", {60, 245}, cv::FONT_HERSHEY_DUPLEX, 1.0, {230, 240, 255}, 2, cv::LINE_AA);
-    cv::putText(frame, "Up/Down: change state    j/k: change selected action    q or ESC: quit",
-                {60, 680}, cv::FONT_HERSHEY_SIMPLEX, 0.8, {175, 185, 195}, 2, cv::LINE_AA);
+    FontRenderer renderer;
+
+    try {
+        renderer.freetype = cv::freetype::createFreeType2();
+        for (const std::string& fontPath : fontCandidates) {
+            try {
+                renderer.freetype->loadFontData(fontPath, 0);
+                renderer.useArial = true;
+                return renderer;
+            } catch (const cv::Exception&) {
+            }
+        }
+    } catch (const cv::Exception&) {
+    }
+
+    renderer.freetype.release();
+    renderer.useArial = false;
+    return renderer;
 }
 
-void drawActionList(cv::Mat& frame, const StateDefinition& state, std::size_t selectedAction) {
+void drawText(cv::Mat& frame,
+              const FontRenderer& fontRenderer,
+              const std::string& text,
+              cv::Point origin,
+              int fontHeight,
+              const cv::Scalar& color,
+              int thickness) {
+    if (fontRenderer.useArial && fontRenderer.freetype) {
+        fontRenderer.freetype->putText(frame, text, origin, fontHeight, color, thickness, cv::LINE_AA, true);
+        return;
+    }
+
+    const double scale = static_cast<double>(fontHeight) / 30.0;
+    cv::putText(frame, text, origin, cv::FONT_HERSHEY_DUPLEX, scale, color, thickness, cv::LINE_AA);
+}
+
+void drawHeader(cv::Mat& frame, const FontRenderer& fontRenderer, const StateDefinition& state) {
+    drawText(frame, fontRenderer, "Current state", {60, 90}, 30, {230, 240, 255}, 2);
+    drawText(frame, fontRenderer, state.name, {60, 150}, 48, {80, 220, 255}, 3);
+
+    drawText(frame, fontRenderer, "Allowed actions", {60, 245}, 30, {230, 240, 255}, 2);
+    drawText(frame,
+             fontRenderer,
+             "Arrow keys: change selected action    Enter: trigger action    i: reset to Init    q or ESC: quit",
+             {60, 680},
+             24,
+             {175, 185, 195},
+             2);
+}
+
+void drawActionList(cv::Mat& frame,
+                    const FontRenderer& fontRenderer,
+                    const StateDefinition& state,
+                    std::size_t selectedAction) {
     const int x = 60;
     const int top = 285;
     const int rowHeight = 46;
@@ -57,7 +119,7 @@ void drawActionList(cv::Mat& frame, const StateDefinition& state, std::size_t se
 
         cv::rectangle(frame, actionRect, fillColor, cv::FILLED);
         cv::rectangle(frame, actionRect, borderColor, 2);
-        cv::putText(frame, state.actions[i], {x + 16, y + 24}, cv::FONT_HERSHEY_DUPLEX, 0.85, textColor, 2, cv::LINE_AA);
+        drawText(frame, fontRenderer, state.actions[i], {x + 16, y + 25}, 26, textColor, 2);
     }
 }
 
@@ -73,9 +135,77 @@ int normalizeKey(int key) {
         case 2621440:
         case 65364:
             return kKeyDown;
+        case 2424832:
+        case 65361:
+            return kKeyLeft;
+        case 2555904:
+        case 65363:
+            return kKeyRight;
         default:
             return key & 0xFF;
     }
+}
+
+std::size_t findStateIndex(const std::vector<StateDefinition>& states, const std::string& name) {
+    for (std::size_t i = 0; i < states.size(); ++i) {
+        if (states[i].name == name) {
+            return i;
+        }
+    }
+    return 0;
+}
+
+std::optional<std::string> nextStateForAction(const std::string& stateName, const std::string& actionName) {
+    if (stateName == "Init") {
+        if (actionName == "select spice") {
+            return "Selecting spice";
+        }
+        if (actionName == "select utensil") {
+            return "Selecting utensil";
+        }
+    }
+
+    if (stateName == "Selecting spice") {
+        return "Spice selected";
+    }
+
+    if (stateName == "Spice selected") {
+        if (actionName == "shake into pot") {
+            return "Shaking spice into pot";
+        }
+        if (actionName == "put down") {
+            return "Init";
+        }
+    }
+
+    if (stateName == "Shaking spice into pot") {
+        if (actionName == "put down") {
+            return "Init";
+        }
+        return "Shaking spice into pot";
+    }
+
+    if (stateName == "Selecting utensil") {
+        return "Utensil selected";
+    }
+
+    if (stateName == "Utensil selected") {
+        if (actionName == "use utensil") {
+            return "Using utensil";
+        }
+        if (actionName == "put down") {
+            return "Init";
+        }
+    }
+
+    if (stateName == "Using utensil") {
+        if (actionName == "put down") {
+            return "Init";
+        }
+        return "Using utensil";
+    }
+
+    return std::nullopt;
 }
 
 }  // namespace
@@ -87,6 +217,7 @@ int main() {
         return EXIT_FAILURE;
     }
 
+    const FontRenderer fontRenderer = createFontRenderer();
     std::size_t stateIndex = 0;
     std::size_t actionIndex = 0;
 
@@ -99,8 +230,8 @@ int main() {
             actionIndex = 0;
         }
 
-        drawHeader(frame, currentState);
-        drawActionList(frame, currentState, actionIndex);
+        drawHeader(frame, fontRenderer, currentState);
+        drawActionList(frame, fontRenderer, currentState, actionIndex);
         cv::imshow(kWindowName, frame);
 
         const int rawKey = cv::waitKeyEx(0);
@@ -110,25 +241,29 @@ int main() {
             break;
         }
 
-        if (key == kKeyUp) {
-            stateIndex = (stateIndex + states.size() - 1) % states.size();
+        if (key == 'i' || key == 'I') {
+            stateIndex = findStateIndex(states, "Init");
             actionIndex = 0;
             continue;
         }
 
-        if (key == kKeyDown) {
-            stateIndex = (stateIndex + 1) % states.size();
-            actionIndex = 0;
-            continue;
-        }
-
-        if ((key == 'j' || key == 'J') && !currentState.actions.empty()) {
+        if ((key == kKeyUp || key == kKeyLeft || key == 'j' || key == 'J') && !currentState.actions.empty()) {
             actionIndex = (actionIndex + currentState.actions.size() - 1) % currentState.actions.size();
             continue;
         }
 
-        if ((key == 'k' || key == 'K') && !currentState.actions.empty()) {
+        if ((key == kKeyDown || key == kKeyRight || key == 'k' || key == 'K') && !currentState.actions.empty()) {
             actionIndex = (actionIndex + 1) % currentState.actions.size();
+            continue;
+        }
+
+        if ((key == 10 || key == 13) && !currentState.actions.empty()) {
+            const std::optional<std::string> nextState =
+                nextStateForAction(currentState.name, currentState.actions[actionIndex]);
+            if (nextState.has_value()) {
+                stateIndex = findStateIndex(states, nextState.value());
+                actionIndex = 0;
+            }
             continue;
         }
     }
