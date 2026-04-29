@@ -32,6 +32,8 @@ private:
 
     jetsonqt::statemachine::StateMachine stateMachine_;
     QLabel* stateLabel_ = nullptr;
+    QLabel* spiceLevelLabel_ = nullptr;
+    QLabel* stirSpeedLabel_ = nullptr;
     QListWidget* actionList_ = nullptr;
     QLabel* imageLabel_ = nullptr;
     QHash<QString, QPixmap> stateImages_;

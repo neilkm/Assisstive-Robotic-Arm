@@ -54,6 +54,16 @@ StateMachineWindow::StateMachineWindow(QWidget* parent)
     stateLabel_->setMinimumHeight(72);
     leftLayout->addWidget(stateLabel_);
 
+    spiceLevelLabel_ = new QLabel(leftPanel);
+    spiceLevelLabel_->setObjectName(QStringLiteral("spiceLevelLabel"));
+    spiceLevelLabel_->setMinimumHeight(42);
+    leftLayout->addWidget(spiceLevelLabel_);
+
+    stirSpeedLabel_ = new QLabel(leftPanel);
+    stirSpeedLabel_->setObjectName(QStringLiteral("stirSpeedLabel"));
+    stirSpeedLabel_->setMinimumHeight(42);
+    leftLayout->addWidget(stirSpeedLabel_);
+
     auto* actionsCaption = new QLabel(QStringLiteral("Allowed actions"), leftPanel);
     actionsCaption->setObjectName(QStringLiteral("captionLabel"));
     leftLayout->addWidget(actionsCaption);
@@ -93,6 +103,16 @@ StateMachineWindow::StateMachineWindow(QWidget* parent)
         #stateLabel {
             color: #50dcff;
             font-size: 48px;
+            font-weight: 800;
+        }
+        #spiceLevelLabel {
+            color: #b4ffb4;
+            font-size: 28px;
+            font-weight: 800;
+        }
+        #stirSpeedLabel {
+            color: #ffd166;
+            font-size: 28px;
             font-weight: 800;
         }
         #controlsLabel {
@@ -186,6 +206,10 @@ void StateMachineWindow::refreshUi() {
     const auto& state = stateMachine_.currentState();
     const QString stateName = toQString(state.name);
     stateLabel_->setText(stateName);
+    spiceLevelLabel_->setVisible(stateName == QStringLiteral("Shaking spice into pot"));
+    spiceLevelLabel_->setText(QStringLiteral("Spice level: %1").arg(stateMachine_.spiceLevel()));
+    stirSpeedLabel_->setVisible(stateName == QStringLiteral("Using utensil"));
+    stirSpeedLabel_->setText(QStringLiteral("Stir speed: %1").arg(stateMachine_.stirSpeed()));
 
     actionList_->clear();
     for (const std::string& action : state.actions) {

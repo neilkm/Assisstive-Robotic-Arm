@@ -23,6 +23,14 @@ std::size_t StateMachine::selectedActionIndex() const {
     return actionIndex_;
 }
 
+int StateMachine::spiceLevel() const {
+    return spiceLevel_;
+}
+
+int StateMachine::stirSpeed() const {
+    return stirSpeed_;
+}
+
 const std::vector<StateDefinition>& StateMachine::states() const {
     return states_;
 }
@@ -50,6 +58,8 @@ void StateMachine::selectNextAction() {
 void StateMachine::reset() {
     stateIndex_ = 0;
     actionIndex_ = 0;
+    spiceLevel_ = 1;
+    stirSpeed_ = 1;
 }
 
 bool StateMachine::triggerSelectedAction() {
@@ -64,8 +74,23 @@ bool StateMachine::triggerSelectedAction() {
         return false;
     }
 
-    stateIndex_ = findStateIndex(nextState.value());
-    actionIndex_ = 0;
+    const std::size_t previousStateIndex = stateIndex_;
+    const std::size_t nextStateIndex = findStateIndex(nextState.value());
+    applyActionSideEffects(state.name, state.actions.at(actionIndex_));
+
+    stateIndex_ = nextStateIndex;
+    if (stateIndex_ != previousStateIndex) {
+        actionIndex_ = 0;
+    }
+
+    if (states_.at(stateIndex_).name == "Shaking spice into pot" && state.name != "Shaking spice into pot") {
+        spiceLevel_ = 1;
+    }
+
+    if (states_.at(stateIndex_).name == "Using utensil" && state.name != "Using utensil") {
+        stirSpeed_ = 1;
+    }
+
     return true;
 }
 
@@ -131,6 +156,34 @@ std::size_t StateMachine::findStateIndex(const std::string& name) const {
     }
 
     return 0;
+}
+
+void StateMachine::applyActionSideEffects(const std::string& stateName, const std::string& actionName) {
+    if (stateName == "Shaking spice into pot") {
+        if (actionName == "more spice" && spiceLevel_ < 5) {
+            ++spiceLevel_;
+            return;
+        }
+
+        if (actionName == "less spice" && spiceLevel_ > 1) {
+            --spiceLevel_;
+        }
+
+        return;
+    }
+
+    if (stateName == "Using utensil") {
+        if (actionName == "stir faster" && stirSpeed_ < 5) {
+            ++stirSpeed_;
+            return;
+        }
+
+        if (actionName == "stir slower" && stirSpeed_ > 1) {
+            --stirSpeed_;
+        }
+
+        return;
+    }
 }
 
 void StateMachine::clampSelectedAction() {
