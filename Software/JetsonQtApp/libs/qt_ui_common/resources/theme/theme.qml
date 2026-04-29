@@ -21,7 +21,7 @@ QtObject {
     property string alternateFont: "Menlo"
     property int heading_FontSize: 48
     property int description_FontSize: 30
-    property int bodyText_FontSize: 22
+    property int bodyText_FontSize: 18
 
     // colors
     property var mainBgColor: "#101820"

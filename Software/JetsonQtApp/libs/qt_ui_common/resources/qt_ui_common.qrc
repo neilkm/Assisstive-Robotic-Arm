@@ -1,5 +1,7 @@
 <RCC>
     <qresource prefix="/JetsonQtApp">
         <file alias="theme.qml">theme/theme.qml</file>
+        <file alias="qml/ActionButton.qml">qml/ActionButton.qml</file>
+        <file alias="qml/LevelGauge.qml">qml/LevelGauge.qml</file>
     </qresource>
 </RCC>
