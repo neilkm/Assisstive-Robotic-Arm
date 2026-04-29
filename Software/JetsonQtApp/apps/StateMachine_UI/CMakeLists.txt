@@ -3,17 +3,19 @@ set(STATE_MACHINE_UI_BUILD_ASSET_DIR "$<TARGET_FILE_DIR:StateMachine_UI>/assets"
 
 jetsonqt_add_library(state_machine_ui
     SOURCES
-        src/StateMachineWindow.cpp
+        src/StateMachineController.cpp
+        qml/state_machine_ui.qrc
     PUBLIC_HEADERS
-        include/StateMachineUi/StateMachineWindow.hpp
+        include/StateMachineUi/StateMachineController.h
     PUBLIC_LIBS
         JetsonQtApp::state_machine
         JetsonQtApp::qt_ui_common
-        Qt${QT_VERSION_MAJOR}::Widgets
+        Qt${QT_VERSION_MAJOR}::Qml
+        Qt${QT_VERSION_MAJOR}::Quick
 )
 
 target_compile_definitions(state_machine_ui
-    PRIVATE
+    PUBLIC
         STATE_MACHINE_UI_ASSET_RELATIVE_PATH="assets/robotarm_state_images"
 )
 

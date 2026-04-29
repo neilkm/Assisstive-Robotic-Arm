@@ -1,6 +1,6 @@
 #pragma once
 
-#include "JetsonQtApp/StateMachine/StateDefinition.hpp"
+#include "JetsonQtApp/StateMachine/StateDefinition.h"
 
 #include <cstddef>
 #include <optional>

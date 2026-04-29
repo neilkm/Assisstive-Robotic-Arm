@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/JetsonQtApp">
+        <file alias="theme.qml">theme/theme.qml</file>
+    </qresource>
+</RCC>

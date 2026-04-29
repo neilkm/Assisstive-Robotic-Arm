@@ -36,10 +36,10 @@ Jetson Ubuntu:
 
 ```bash
 sudo apt update
-sudo apt install -y build-essential cmake ninja-build qt6-base-dev
+sudo apt install -y build-essential cmake ninja-build qt6-base-dev qt6-declarative-dev
 ```
 
-If your Jetson image only provides Qt 5, install `qtbase5-dev` instead. The project accepts either Qt 6 or Qt 5.
+If your Jetson image only provides Qt 5, install `qtbase5-dev qtdeclarative5-dev` instead. The project accepts either Qt 6 or Qt 5.
 
 Configure and build:
 

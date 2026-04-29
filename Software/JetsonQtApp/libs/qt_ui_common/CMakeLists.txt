@@ -1,8 +1,13 @@
 jetsonqt_add_library(qt_ui_common
     SOURCES
         src/AssetPaths.cpp
+        src/Theme.cpp
+        resources/qt_ui_common.qrc
     PUBLIC_HEADERS
-        include/JetsonQtApp/QtUiCommon/AssetPaths.hpp
+        include/JetsonQtApp/QtUiCommon/AssetPaths.h
+        include/JetsonQtApp/QtUiCommon/Theme.h
     PUBLIC_LIBS
         Qt${QT_VERSION_MAJOR}::Core
+        Qt${QT_VERSION_MAJOR}::Gui
+        Qt${QT_VERSION_MAJOR}::Qml
 )

@@ -1,4 +1,4 @@
-#include "JetsonQtApp/QtUiCommon/AssetPaths.hpp"
+#include "JetsonQtApp/QtUiCommon/AssetPaths.h"
 
 #include <QDir>
 #include <QFileInfo>
