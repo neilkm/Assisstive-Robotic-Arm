@@ -66,6 +66,8 @@ Theme Theme::loadDefault() {
     theme.menuBgColor_ = QColor(QStringLiteral("#20242c"));
     theme.menuFgColor_ = QColor(QStringLiteral("#e6f0ff"));
     theme.mainBorderColor_ = QColor(QStringLiteral("#464e5c"));
+    theme.highlightedColor_ = QColor(QStringLiteral("#f2c14e"));
+    theme.highlightedBorderColor_ = QColor(QStringLiteral("#ffe08a"));
 
     if (themeObject.isNull()) {
         return theme;
@@ -97,6 +99,8 @@ Theme Theme::loadDefault() {
     theme.menuBgColor_ = readColor(*themeObject, "menuBgColor", theme.menuBgColor_);
     theme.menuFgColor_ = readColor(*themeObject, "menuFGColor", theme.menuFgColor_);
     theme.mainBorderColor_ = readColor(*themeObject, "mainBorderColor", theme.mainBorderColor_);
+    theme.highlightedColor_ = readColor(*themeObject, "highlightedColor", theme.highlightedColor_);
+    theme.highlightedBorderColor_ = readColor(*themeObject, "highlightedBorderColor", theme.highlightedBorderColor_);
 
     return theme;
 }
@@ -147,6 +151,14 @@ const QColor& Theme::menuFgColor() const {
 
 const QColor& Theme::mainBorderColor() const {
     return mainBorderColor_;
+}
+
+const QColor& Theme::highlightedColor() const {
+    return highlightedColor_;
+}
+
+const QColor& Theme::highlightedBorderColor() const {
+    return highlightedBorderColor_;
 }
 
 }  // namespace jetsonqt::qtui

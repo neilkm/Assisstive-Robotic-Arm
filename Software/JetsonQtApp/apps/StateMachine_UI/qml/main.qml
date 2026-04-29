@@ -1,5 +1,6 @@
 import QtQuick 2.15
 import QtQuick.Window 2.15
+import QtMultimedia
 
 Window {
     id: root
@@ -7,7 +8,14 @@ Window {
     height: 720
     visible: true
     title: "Jetson Nano State UI"
-    color: theme ? theme.mainBgColor : "#181c24"
+    color: theme ? theme.mainBgColor : "#101820"
+
+    Loader {
+        id: themeLoader
+        source: "qrc:/JetsonQtApp/theme.qml"
+    }
+
+    readonly property QtObject theme: themeLoader.item
 
     function triggerSelectedAction() {
         stateMachine.triggerSelectedAction()
@@ -68,7 +76,7 @@ Window {
                 Text {
                     visible: stateMachine.currentStateName === "Shaking spice into pot"
                     text: "Spice level: " + stateMachine.spiceLevel
-                    color: theme.button1_borderColor
+                    color: theme.highlightedBorderColor
                     font.family: theme.mainFont
                     font.pixelSize: theme.button1_fontSize
                     font.bold: true
@@ -79,7 +87,7 @@ Window {
                 Text {
                     visible: stateMachine.currentStateName === "Using utensil"
                     text: "Stir speed: " + stateMachine.stirSpeed
-                    color: theme.button1_borderColor
+                    color: theme.highlightedBorderColor
                     font.family: theme.mainFont
                     font.pixelSize: theme.button1_fontSize
                     font.bold: true
@@ -108,8 +116,8 @@ Window {
                         width: actionList.width
                         height: 42
                         radius: selected ? theme.button1_radius : theme.button2_radius
-                        color: selected ? theme.button1_mainColor : theme.button2_mainColor
-                        border.color: selected ? theme.button1_borderColor : theme.button2_borderColor
+                        color: selected ? theme.highlightedColor : theme.button2_mainColor
+                        border.color: selected ? theme.highlightedBorderColor : theme.button2_borderColor
                         border.width: 2
 
                         readonly property bool selected: index === stateMachine.selectedActionIndex
@@ -157,25 +165,115 @@ Window {
                 border.color: theme.mainBorderColor
                 border.width: 2
 
-                Image {
-                    id: stateImage
-                    anchors.centerIn: parent
-                    width: 540
-                    height: 530
-                    source: stateMachine.imageSource
-                    fillMode: Image.PreserveAspectFit
-                    smooth: true
-                    visible: source.toString().length > 0
-                }
+                Column {
+                    anchors.fill: parent
+                    anchors.margins: 20
+                    spacing: 20
 
-                Text {
-                    anchors.centerIn: parent
-                    visible: !stateImage.visible
-                    text: "No image yet for this state"
-                    color: theme.mainBorderColor
-                    font.family: theme.mainFont
-                    font.pixelSize: theme.description_FontSize
-                    font.bold: true
+                    Rectangle {
+                        width: parent.width
+                        height: (parent.height - parent.spacing) / 2
+                        color: "#0b1117"
+                        border.color: theme.mainBorderColor
+                        border.width: 1
+                        radius: 8
+
+                        Text {
+                            anchors.left: parent.left
+                            anchors.top: parent.top
+                            anchors.leftMargin: 16
+                            anchors.topMargin: 12
+                            text: "Illustration"
+                            color: theme.menuFGColor
+                            font.family: theme.alternateFont
+                            font.pixelSize: 15
+                            font.bold: true
+                            z: 1
+                        }
+
+                        Image {
+                            id: stateImage
+                            anchors.centerIn: parent
+                            width: parent.width - 32
+                            height: parent.height - 52
+                            anchors.verticalCenterOffset: 16
+                            source: stateMachine.imageSource
+                            fillMode: Image.PreserveAspectFit
+                            smooth: true
+                            visible: source.toString().length > 0
+                        }
+
+                        Text {
+                            anchors.centerIn: parent
+                            visible: !stateImage.visible
+                            text: "No image yet for this state"
+                            color: theme.mainBorderColor
+                            font.family: theme.mainFont
+                            font.pixelSize: theme.description_FontSize
+                            font.bold: true
+                        }
+                    }
+
+                    Rectangle {
+                        id: cameraPanel
+                        width: parent.width
+                        height: (parent.height - parent.spacing) / 2
+                        color: "#05080c"
+                        border.color: theme.highlightedBorderColor
+                        border.width: 1
+                        radius: 8
+                        clip: true
+
+                        MediaDevices {
+                            id: mediaDevices
+                        }
+
+                        CaptureSession {
+                            id: captureSession
+                            camera: Camera {
+                                id: systemCamera
+                                cameraDevice: mediaDevices.defaultVideoInput
+                                active: true
+                            }
+                            videoOutput: cameraOutput
+                        }
+
+                        VideoOutput {
+                            id: cameraOutput
+                            anchors.fill: parent
+                            fillMode: VideoOutput.PreserveAspectCrop
+                        }
+
+                        Rectangle {
+                            anchors.left: parent.left
+                            anchors.top: parent.top
+                            anchors.right: parent.right
+                            height: 42
+                            color: "#9905080c"
+                        }
+
+                        Text {
+                            anchors.left: parent.left
+                            anchors.top: parent.top
+                            anchors.leftMargin: 16
+                            anchors.topMargin: 12
+                            text: "Live camera"
+                            color: theme.highlightedBorderColor
+                            font.family: theme.alternateFont
+                            font.pixelSize: 15
+                            font.bold: true
+                        }
+
+                        Text {
+                            anchors.centerIn: parent
+                            visible: mediaDevices.defaultVideoInput.id.length === 0
+                            text: "No camera detected"
+                            color: theme.mainBorderColor
+                            font.family: theme.mainFont
+                            font.pixelSize: theme.bodyText_FontSize
+                            font.bold: true
+                        }
+                    }
                 }
             }
         }

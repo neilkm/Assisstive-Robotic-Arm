@@ -32,6 +32,8 @@ public:
     [[nodiscard]] const QColor& menuBgColor() const;
     [[nodiscard]] const QColor& menuFgColor() const;
     [[nodiscard]] const QColor& mainBorderColor() const;
+    [[nodiscard]] const QColor& highlightedColor() const;
+    [[nodiscard]] const QColor& highlightedBorderColor() const;
 
 private:
     ButtonTheme button1_;
@@ -46,6 +48,8 @@ private:
     QColor menuBgColor_;
     QColor menuFgColor_;
     QColor mainBorderColor_;
+    QColor highlightedColor_;
+    QColor highlightedBorderColor_;
 };
 
 }  // namespace jetsonqt::qtui
