@@ -38,6 +38,20 @@ Jetson Ubuntu:
 Software/JetsonQtApp/scripts/install_requirements.sh
 ```
 
+The Jetson requirements script also installs PlatformIO so the Jetson can build
+and flash MCU firmware from a PlatformIO project:
+
+```bash
+pio run
+pio run -t upload
+```
+
+If `pio` is not found immediately after installation, open a new shell or add
+`$HOME/.local/bin` to `PATH`.
+
+The script adds the install user to the `dialout` group when that group exists.
+Log out and back in before flashing an MCU over USB serial for the first time.
+
 If your Jetson image only provides Qt 5, install `qtbase5-dev qtdeclarative5-dev qtmultimedia5-dev qml-module-qtqml-workerscript` instead. The project accepts either Qt 6 or Qt 5.
 
 Configure and build:
