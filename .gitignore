@@ -17,6 +17,9 @@
 # swp files
 *.swp
 
+# local agent instructions
+AGENTS.md
+
 # python
 __pycache__/
 *.pyc
