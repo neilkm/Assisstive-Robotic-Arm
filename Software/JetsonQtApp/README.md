@@ -35,15 +35,14 @@ brew install qt cmake ninja
 Jetson Ubuntu:
 
 ```bash
-Software/JetsonQtApp/scripts/install_requirements.sh
+Software/scripts/install_jetson_qt_requirements.sh
 ```
 
 The Jetson requirements script also installs PlatformIO so the Jetson can build
 and flash MCU firmware from a PlatformIO project:
 
 ```bash
-pio run
-pio run -t upload
+Software/scripts/build_and_flash_esp32_app.sh
 ```
 
 If `pio` is not found immediately after installation, open a new shell or add
@@ -57,13 +56,13 @@ If your Jetson image only provides Qt 5, install `qtbase5-dev qtdeclarative5-dev
 Configure and build:
 
 ```bash
-Software/JetsonQtApp/scripts/build_all_apps.sh
+Software/scripts/build_jetson_qt_apps.sh
 ```
 
 Run:
 
 ```bash
-Software/JetsonQtApp/scripts/run_StateMachine_UI.sh
+Software/scripts/run_jetson_qt_state_machine_ui.sh
 ```
 
 On Jetson Linux, the run script targets the Jetson's attached desktop display by
@@ -73,13 +72,13 @@ Jetson image uses a different local X11 display number, override it when
 launching:
 
 ```bash
-JETSON_QT_DISPLAY=:1 Software/JetsonQtApp/scripts/run_StateMachine_UI.sh
+JETSON_QT_DISPLAY=:1 Software/scripts/run_jetson_qt_state_machine_ui.sh
 ```
 
 Clean:
 
 ```bash
-Software/JetsonQtApp/scripts/clean_all_builds.sh
+Software/scripts/clean_jetson_qt_build.sh
 ```
 
 On macOS, if CMake cannot find Homebrew Qt automatically, configure with:
