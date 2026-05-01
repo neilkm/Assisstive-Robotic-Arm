@@ -1,6 +1,6 @@
 #include "JetsonQtApp/QtUiCommon/Resources.h"
 
-#include <QtResource>
+#include <QtCore/qresource.h>
 
 void initializeQtUiCommonResources() {
     Q_INIT_RESOURCE(qt_ui_common);

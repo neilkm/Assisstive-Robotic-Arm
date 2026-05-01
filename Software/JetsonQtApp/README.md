@@ -35,8 +35,7 @@ brew install qt cmake ninja
 Jetson Ubuntu:
 
 ```bash
-sudo apt update
-sudo apt install -y build-essential cmake ninja-build qt6-base-dev qt6-declarative-dev qt6-multimedia-dev
+Software/JetsonQtApp/scripts/install_requirements.sh
 ```
 
 If your Jetson image only provides Qt 5, install `qtbase5-dev qtdeclarative5-dev qtmultimedia5-dev` instead. The project accepts either Qt 6 or Qt 5.
