@@ -52,6 +52,14 @@ Run:
 Software/JetsonQtApp/scripts/run_StateMachine_UI.sh
 ```
 
+On Jetson Linux, the run script targets the Jetson's attached display by default
+with `DISPLAY=:0`, even when launched from an SSH session. If a Jetson image uses
+a different local display number, override it when launching:
+
+```bash
+JETSON_QT_DISPLAY=:1 Software/JetsonQtApp/scripts/run_StateMachine_UI.sh
+```
+
 Clean:
 
 ```bash
