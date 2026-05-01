@@ -36,20 +36,21 @@ System-Monitor-NNK
 not depend on the campus network IP address.
 
 ```sh
-Software/JetsonTools/ssh_jetson.sh
+Software/scripts/ssh_jetson.sh
 ```
 
-Defaults:
+Create `secrets.env` at the repository root. This file is git-ignored.
 
 ```sh
-JETSON_SSH_USER=jetson
-JETSON_SSH_HOST=jetson-arm.tail7a7a89.ts.net
+JETSON_SSH_USER=your-ssh-user
+JETSON_SSH_HOST=your-jetson-host
+JETSON_SSH_PASSWORD=your-jetson-password
 ```
 
-Override either value if needed:
+Override any value for one command if needed:
 
 ```sh
-JETSON_SSH_HOST=100.89.146.99 Software/JetsonTools/ssh_jetson.sh
+JETSON_SSH_HOST=your-temporary-host Software/scripts/ssh_jetson.sh
 ```
 
 By default the installer writes to `/usr/local/bin`. To install somewhere else:

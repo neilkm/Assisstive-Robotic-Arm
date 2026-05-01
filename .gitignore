@@ -1,15 +1,36 @@
 # build outputs
+build/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+compile_commands.json
+cmake_install.cmake
+install_manifest.txt
 *.o
 *.d
 *.bin
+*.elf
+*.hex
+*.map
+*.uf2
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
 *.lock
 /Software/build_output/
 
+# embedded toolchains
+.pio/
+.pioenvs/
+.piolibdeps/
+
+# Rust build cache
+target/
+
 # macOS metadata
 .DS_Store
-
-# local Rust build cache
-/Software/sandbox/AprilTag_PoseDetector/rust_pose_detector/target/
 
 # generated AprilTag image assets
 /Software/sandbox/AprilTag_PoseDetector/tools/_apriltag-imgs/
@@ -20,8 +41,13 @@
 # local agent instructions
 AGENTS.md
 
+# local secrets
+/secrets.env
+
 # python
 __pycache__/
 *.pyc
+*.pyo
 *.venv/
 */__pycache__/
+.pytest_cache/
