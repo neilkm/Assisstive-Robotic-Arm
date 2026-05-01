@@ -22,6 +22,7 @@ install_manifest.txt
 /Software/build_output/
 
 # embedded toolchains
+.pio
 .pio/
 .pioenvs/
 .piolibdeps/
