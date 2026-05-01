@@ -38,7 +38,7 @@ Jetson Ubuntu:
 Software/JetsonQtApp/scripts/install_requirements.sh
 ```
 
-If your Jetson image only provides Qt 5, install `qtbase5-dev qtdeclarative5-dev qtmultimedia5-dev` instead. The project accepts either Qt 6 or Qt 5.
+If your Jetson image only provides Qt 5, install `qtbase5-dev qtdeclarative5-dev qtmultimedia5-dev qml-module-qtqml-workerscript` instead. The project accepts either Qt 6 or Qt 5.
 
 Configure and build:
 
