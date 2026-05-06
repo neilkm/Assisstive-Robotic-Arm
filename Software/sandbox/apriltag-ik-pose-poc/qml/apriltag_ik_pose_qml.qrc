@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/ApriltagIkPose">
+        <file alias="main.qml">main.qml</file>
+    </qresource>
+</RCC>
