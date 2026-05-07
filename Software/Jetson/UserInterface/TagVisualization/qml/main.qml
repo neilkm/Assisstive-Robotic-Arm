@@ -62,7 +62,7 @@ Window {
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.rightMargin: 24
                 text: tagVisualization.statusText
-                color: tagVisualization.cameraReady ? accent : "#ffb86b"
+                color: tagVisualization.cameraReady && tagVisualization.homeFrameAvailable ? accent : "#ffb86b"
                 font.pixelSize: 16
                 font.bold: true
             }
@@ -145,7 +145,7 @@ Window {
                     anchors.left: parent.left
                     anchors.top: parent.top
                     anchors.margins: 16
-                    text: "Camera-Relative Coordinates"
+                    text: "Home Tag " + tagVisualization.homeTagId + " Coordinates"
                     color: primaryText
                     font.pixelSize: 18
                     font.bold: true
@@ -283,7 +283,7 @@ Window {
                     anchors.left: parent.left
                     anchors.top: parent.top
                     anchors.margins: 16
-                    text: "Detected Tags"
+                    text: "Tags Relative to Home " + tagVisualization.homeTagId
                     color: primaryText
                     font.pixelSize: 18
                     font.bold: true
@@ -343,7 +343,7 @@ Window {
                 Text {
                     anchors.centerIn: parent
                     visible: tagVisualization.tagPoses.length === 0
-                    text: "No visible AprilTags"
+                    text: tagVisualization.homeFrameAvailable ? "No visible AprilTags" : "Home tag " + tagVisualization.homeTagId + " not visible"
                     color: mutedText
                     font.pixelSize: 16
                     font.bold: true
@@ -363,7 +363,7 @@ Window {
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.leftMargin: 24
-                text: "OpenCV camera frame | coordinates in camera frame: +X right, +Y down, +Z forward | Esc quits"
+                text: "OpenCV camera frame | coordinates relative to AprilTag ID " + tagVisualization.homeTagId + " | Esc quits"
                 color: mutedText
                 font.pixelSize: 13
             }

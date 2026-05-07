@@ -12,6 +12,12 @@ namespace {
 
 constexpr int kSuccessfulExit = 0;
 constexpr int kFailedExit = 1;
+constexpr int kDefaultHomeTagId = 5;
+
+struct TestOptions {
+  jetsonqt::objectdetection::ObjectDetectionConfig config;
+  int homeTagId = kDefaultHomeTagId;
+};
 
 int parseInt(const std::string& value, const std::string& argumentName) {
   try {
@@ -41,9 +47,8 @@ double parseDouble(const std::string& value, const std::string& argumentName) {
   }
 }
 
-jetsonqt::objectdetection::ObjectDetectionConfig parseConfig(int argc,
-                                                             char** argv) {
-  jetsonqt::objectdetection::ObjectDetectionConfig config;
+TestOptions parseOptions(int argc, char** argv) {
+  TestOptions options;
 
   for (int i = 1; i < argc; ++i) {
     const std::string argument = argv[i];
@@ -53,17 +58,22 @@ jetsonqt::objectdetection::ObjectDetectionConfig parseConfig(int argc,
 
     const std::string value = argv[++i];
     if (argument == "--camera-index") {
-      config.cameraIndex = parseInt(value, argument);
+      options.config.cameraIndex = parseInt(value, argument);
     } else if (argument == "--tag-size-m") {
-      config.aprilTagSizeMeters = parseDouble(value, argument);
+      options.config.aprilTagSizeMeters = parseDouble(value, argument);
     } else if (argument == "--calibration") {
-      config.calibrationFilePath = value;
+      options.config.calibrationFilePath = value;
+    } else if (argument == "--home-tag-id") {
+      options.homeTagId = parseInt(value, argument);
+      if (options.homeTagId < 0) {
+        throw std::runtime_error("--home-tag-id must be non-negative.");
+      }
     } else {
       throw std::runtime_error("Unknown argument: " + argument);
     }
   }
 
-  return config;
+  return options;
 }
 
 }  // namespace
@@ -71,9 +81,10 @@ jetsonqt::objectdetection::ObjectDetectionConfig parseConfig(int argc,
 int main(int argc, char* argv[]) {
   try {
     QGuiApplication app(argc, argv);
+    const TestOptions options = parseOptions(argc, argv);
 
     tagvisualizationui::TagVisualizationController controller(
-        parseConfig(argc, argv));
+        options.config, options.homeTagId);
 
     QQmlApplicationEngine engine;
     engine.addImageProvider(

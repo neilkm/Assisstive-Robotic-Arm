@@ -18,17 +18,22 @@ class TagVisualizationController final : public QObject {
                  cameraImageChanged)
   Q_PROPERTY(QString statusText READ statusText NOTIFY visualizationChanged)
   Q_PROPERTY(bool cameraReady READ cameraReady NOTIFY visualizationChanged)
+  Q_PROPERTY(bool homeFrameAvailable READ homeFrameAvailable NOTIFY
+                 visualizationChanged)
+  Q_PROPERTY(int homeTagId READ homeTagId CONSTANT)
 
  public:
   explicit TagVisualizationController(
       jetsonqt::objectdetection::ObjectDetectionConfig config,
-      QObject* parent = nullptr);
+      int homeTagId = 5, QObject* parent = nullptr);
   ~TagVisualizationController() override;
 
   [[nodiscard]] QVariantList tagPoses() const;
   [[nodiscard]] QString cameraImageSource() const;
   [[nodiscard]] QString statusText() const;
   [[nodiscard]] bool cameraReady() const;
+  [[nodiscard]] bool homeFrameAvailable() const;
+  [[nodiscard]] int homeTagId() const;
   [[nodiscard]] QImage latestCameraImage() const;
 
   Q_INVOKABLE void start();
@@ -50,7 +55,9 @@ class TagVisualizationController final : public QObject {
   QString cameraImageSource_;
   QString statusText_;
   int frameRevision_ = 0;
+  int homeTagId_ = 5;
   bool cameraReady_ = false;
+  bool homeFrameAvailable_ = false;
 };
 
 class TagVisualizationImageProvider final : public QQuickImageProvider {
