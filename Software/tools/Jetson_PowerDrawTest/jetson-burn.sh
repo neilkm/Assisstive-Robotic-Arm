@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TOOL_NAME="$(basename "$SCRIPT_DIR")"
@@ -10,6 +10,15 @@ CUDA_BURN_SRC="$SCRIPT_DIR/cuda_burn.cu"
 CUDA_MEM_BURN_SRC="$SCRIPT_DIR/cuda_mem_burn.cu"
 CUDA_BURN_BIN="$BUILD_DIR/cuda_burn"
 CUDA_MEM_BURN_BIN="$BUILD_DIR/cuda_mem_burn"
+
+NVCC_BIN="${NVCC:-}"
+if [[ -z "$NVCC_BIN" ]]; then
+  if command -v nvcc >/dev/null 2>&1; then
+    NVCC_BIN="$(command -v nvcc)"
+  elif [[ -x /usr/local/cuda/bin/nvcc ]]; then
+    NVCC_BIN="/usr/local/cuda/bin/nvcc"
+  fi
+fi
 
 #Test Duration
 # default 30s
@@ -26,7 +35,11 @@ build_cuda_helper() {
 
   if [[ ! -x "$output_file" || "$source_file" -nt "$output_file" ]]; then
     echo "[jetson-burn] building $(basename "$output_file")..."
-    nvcc "$source_file" -o "$output_file"
+    if [[ -z "$NVCC_BIN" ]]; then
+      echo "[jetson-burn] error: nvcc not found. Install CUDA or set NVCC=/path/to/nvcc." >&2
+      exit 1
+    fi
+    "$NVCC_BIN" "$source_file" -o "$output_file" || exit 1
   fi
 }
 
@@ -39,10 +52,10 @@ echo "ignore errors and wait till Power summary stats at end of test"
 echo "logs stored in: ${LOGFILE}"
 echo "====starting test===="
 
-pkill -f cuda_burn 2>/dev/null
-pkill -f cuda_mem_burn 2>/dev/null
-pkill stress-ng 2>/dev/null
-pkill tegrastats 2>/dev/null
+pkill -f cuda_burn 2>/dev/null || true
+pkill -f cuda_mem_burn 2>/dev/null || true
+pkill stress-ng 2>/dev/null || true
+pkill tegrastats 2>/dev/null || true
 
 #Linux swap aggression
 # 0 avoid swap, 60 default, 100 max pressure
@@ -83,11 +96,11 @@ stress-ng \
 
 echo "[jetson-burn] cleaning up..."
 
-pkill -f cuda_burn 2>/dev/null
-pkill -f cuda_mem_burn 2>/dev/null
-pkill stress-ng 2>/dev/null
+pkill -f cuda_burn 2>/dev/null || true
+pkill -f cuda_mem_burn 2>/dev/null || true
+pkill stress-ng 2>/dev/null || true
 
-kill "$TEGRAPID" 2>/dev/null
+kill "$TEGRAPID" 2>/dev/null || true
 sleep 2
 
 echo
