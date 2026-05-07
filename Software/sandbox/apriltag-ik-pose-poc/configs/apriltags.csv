@@ -1,9 +1,0 @@
-id,attached_after_joint,local_x_m,local_y_m,local_z_m
-apriltag0,0,W0,-0.5*L1,0
-apriltag1,0,-W0,-0.5*L1,0
-apriltag2,2,0.5*L3,-W1,0
-apriltag3,2,0.5*L3,W1,0
-apriltag4,4,0,-W2,0
-apriltag5,4,0,W2,0
-apriltag6,5,0,-G0,0
-apriltag7,5,0,G0,0

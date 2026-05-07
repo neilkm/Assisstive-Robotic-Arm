@@ -18,10 +18,10 @@ This sandbox is a visual proof of concept for validating an assistive robotic ar
 - Solve inverse kinematics for the joint angles.
 - Draw the true kinematic arm as blue joint dots and yellow link lines.
 - Draw simulated AprilTag centers as purple dots attached to the arm.
-- Reconstruct joint angles and end-effector position from the AprilTag center positions through a separate measurement path.
+- Estimate the end-effector position from AprilTag pose measurements through a separate measurement path.
 - Compare the commanded/FK end-effector position against the AprilTag-derived end-effector estimate.
 
-The current project simulates AprilTag detections. It is structured so the simulated tag reader can later be replaced by an OpenCV AprilTag detector that returns real 3D tag-center coordinates.
+The current project simulates AprilTag detections. It is structured so the simulated tag reader can later be replaced by an OpenCV AprilTag detector that returns real 3D tag poses and visibility flags.
 
 The kinematics and Qt controller are C++. The operator UI is Qt/QML.
 
@@ -34,21 +34,30 @@ Software/sandbox/apriltag-ik-pose-poc/
   build.sh
   run.sh
   configs/
-    apriltags.csv
-    dh_table.csv
-    robot_dimensions.csv
+    arm_geometry.csv
   qml/
     main.qml
+    Theme.qml
+    ToolButton.qml
+    InputBox.qml
     apriltag_ik_pose_qml.qrc
   src/
     PoseController.cpp
     PoseController.hpp
+    AprilTagEndEffectorEstimator.cpp
+    AprilTagEndEffectorEstimator.hpp
+    ArmForwardKinematics.cpp
+    ArmForwardKinematics.hpp
+    ArmGeometry.cpp
+    ArmGeometry.hpp
     kinematics.cpp
     kinematics.hpp
     main.cpp
     qml_main.cpp
   tests/
     kinematics_test.cpp
+    arm_forward_kinematics_test.cpp
+    april_tag_end_effector_estimator_test.cpp
     qml/
       tst_main.qml
 ```
@@ -63,11 +72,11 @@ The app keeps two pose paths separate:
    - Forward kinematics gives the actual end-effector position for those angles.
 
 2. **AprilTag-derived path**
-   - Tag centers are generated from the true joint state in this proof of concept.
-   - A separate C++ estimator uses the observed tag centers and the same robot geometry to recover joint angles.
-   - Forward kinematics on the recovered angles gives the tag-derived end-effector estimate.
+   - Tag poses are generated from the true joint state in this proof of concept.
+   - A separate C++ estimator consumes eight AprilTag statuses. Each status has the last recorded pose and an `is_visible` flag.
+   - End-effector-mounted tags provide a direct rigid-transform estimate of the end-effector pose.
 
-If the tag-derived end-effector estimate matches the actual FK end-effector position, the pose-estimation math path is consistent. In real camera usage, the simulated tag-center function should be replaced by an OpenCV detector that reports calibrated 3D tag centers.
+If the tag-derived end-effector estimate matches the actual FK end-effector position, the pose-estimation math path is consistent. In real camera usage, the simulated tag function should be replaced by an OpenCV detector that reports calibrated 3D tag poses. The current estimator intentionally warns when no visible tag is mounted on the end effector; recovering full arm pose from only intermediate-link tags requires a nonlinear joint-state estimator and is left as future production work.
 
 ## Run
 
@@ -80,6 +89,20 @@ Run the non-GUI smoke test:
 
 ```bash
 ./run.sh smoke
+```
+
+Run each app directly:
+
+```bash
+./run_qml_app.sh
+./run_backend_app.sh --zero
+```
+
+Run each app script in noninteractive smoke mode:
+
+```bash
+./run_qml_app.sh --smoke
+./run_backend_app.sh --smoke
 ```
 
 Build only:
@@ -113,23 +136,28 @@ The Qt/QML GUI animates joint motion at `5 deg/s` through the C++ `PoseControlle
 
 The GUI has two pages:
 
-- `Pose`: XYZ target input, arm visualization, AprilTag visualization, end-effector comparison, and a `Cube` test button.
-- `Config`: editable distance constants and editable six-row DH table. `Save` rewrites the CSV files and reloads the C++ backend.
+- `Pose`: XYZ target input, approach angle control, joint5 end-effector rotation control, AprilTag visibility controls, arm visualization, AprilTag visualization, end-effector comparison, solver warnings, and a `Cube` test button.
+- `Config`: editable distance constants and editable six-row DH table. `Save` rewrites `configs/arm_geometry.csv` and reloads the C++ backend.
 
-The `Cube` test commands the end effector through eight target points arranged as the vertices of a cube. The cube bottom face lies on the joint0 plane, the bottom face is centered around joint0, and each side is 12 units long. After the eighth point, the test returns the robot to zero joint angles and stops.
+The joint5 rotation control rolls the end effector without changing the current XYZ target. The approach angle control fixes joint5 to the requested angle while solving the next target move. The `Cube` test commands the end effector through eight target points arranged as the vertices of a cube. The cube bottom face lies on the joint0 plane, the bottom face is centered around joint0, and each side is 12 units long. The active cube target corner is highlighted while the sequence runs. After the eighth point, the test returns the robot to zero joint angles and stops.
+
+The pose panel reports three end-effector comparison errors:
+
+```text
+Target->FK: distance between the requested target and the forward-kinematics end effector
+Target->Tag calc: distance between the requested target and the AprilTag-derived end effector
+FK->Tag calc: distance between the forward-kinematics and AprilTag-derived end effectors
+```
 
 ## Configuration
 
-Edit `configs/robot_dimensions.csv` to change the symbolic dimensions:
+Edit `configs/arm_geometry.csv` to change dimensions, DH rows, and AprilTag placement in one file. The symbolic dimensions are:
 
 ```text
 L0 L1 L2 L3 L4 L5 W0 W1 W2 G0
 ```
 
-The default proof-of-concept values are stored in `configs/robot_dimensions.csv`.
-
-
-Edit `configs/dh_table.csv` to change the six robot joints. The table is:
+The default proof-of-concept values are stored in the `dimension` rows. The six robot joints are stored as `joint` rows with:
 
 ```text
 name,a_m,alpha_rad,d_m,theta_offset_rad,initial_deg,min_deg,max_deg
@@ -160,10 +188,10 @@ joint5 = [L0, 0, L1 + L2 + L3 + L4]
 end effector = [L0 + L5, 0, L1 + L2 + L3 + L4]
 ```
 
-Edit `configs/apriltags.csv` to change AprilTag placement:
+AprilTag placement is stored in `apriltag` rows with:
 
 ```text
-id,attached_after_joint,local_x_m,local_y_m,local_z_m
+id,attached_after_joint,local_x_m,local_y_m,local_z_m,local_roll_rad,local_pitch_rad,local_yaw_rad
 ```
 
 `attached_after_joint` is zero-based. For example, `2` means the tag local coordinate is attached after joint 3's DH transform.
@@ -179,12 +207,17 @@ apriltag6/7: centered on the end effector, separated along Y by G0
 
 The default geometry is only a proof-of-concept model. Replace the link lengths, offsets, limits, and AprilTag local coordinates with measured values from the actual arm before using this for hardware validation.
 
+## Math References
+
+The forward kinematics module uses standard Denavit-Hartenberg homogeneous transforms from Denavit and Hartenberg's matrix notation for lower-pair mechanisms. The Euler angle conversion uses the roll-pitch-yaw / ZYX convention described in Kris Hauser's robotics notes. The inverse kinematics solver uses damped least squares as described by Wampler. These references are cited in the source comments where the transform and solver math is implemented.
+
 ## OpenCV Integration Point
 
-Replace the simulated tag-center generation in `src/main.cpp` with a camera-backed OpenCV function that returns tag centers in the same order as `configs/apriltags.csv`:
+Replace the simulated tag generation with a camera-backed OpenCV function that returns tag statuses in the same order as the `apriltag` rows in `configs/arm_geometry.csv`:
 
 ```cpp
-std::vector<arm::Vec3> observed_tags = read_tags_from_camera(...);
+std::vector<arm_pose_estimator::AprilTagStatus> tag_statuses =
+    read_tag_statuses_from_camera(...);
 ```
 
-The coordinate frame must match the robot base frame. If the camera frame is different, add a calibrated camera-to-base transform before passing tag centers into `estimate_pose_from_tags()`.
+The coordinate frame must match the robot base frame. If the camera frame is different, add a calibrated camera-to-base transform before passing tag poses into `arm_pose_estimator::EstimateEndEffectorPose()`.

@@ -2,7 +2,7 @@
 
 #include <QDir>
 #include <QFile>
-#include <QTextStream>
+#include <QDebug>
 
 #include <algorithm>
 #include <cmath>
@@ -75,6 +75,8 @@ QVariantList PoseController::tagPoints() const {
         if (i < tags_.size()) {
             point.insert(QStringLiteral("label"), QString::fromStdString(tags_[i].id));
         }
+        point.insert(QStringLiteral("visible"),
+                     i >= tagVisibility_.size() ? true : tagVisibility_[i]);
         out.append(point);
     }
     return out;
@@ -164,6 +166,56 @@ double PoseController::endEffectorCompareErrorM() const {
     return current_.ee_compare_error_m;
 }
 
+double PoseController::targetActualErrorM() const {
+    return current_.target_actual_error_m;
+}
+
+double PoseController::targetCalculatedErrorM() const {
+    return current_.target_calculated_error_m;
+}
+
+double PoseController::endEffectorRotationDeg() const {
+    if (current_.q_deg.size() <= 5) {
+        return 0.0;
+    }
+    return current_.q_deg[5];
+}
+
+double PoseController::endEffectorRotationMinDeg() const {
+    if (joints_.size() <= 5) {
+        return -180.0;
+    }
+    return joints_[5].min_deg;
+}
+
+double PoseController::endEffectorRotationMaxDeg() const {
+    if (joints_.size() <= 5) {
+        return 180.0;
+    }
+    return joints_[5].max_deg;
+}
+
+double PoseController::approachAngleDeg() const {
+    return approachAngleDeg_;
+}
+
+QString PoseController::solverWarning() const {
+    return current_.solver_warning;
+}
+
+QVariantList PoseController::tagVisibility() const {
+    QVariantList out;
+    for (size_t i = 0; i < tagVisibility_.size(); ++i) {
+        QVariantMap row;
+        row.insert(QStringLiteral("index"), static_cast<int>(i));
+        row.insert(QStringLiteral("id"), i < tags_.size() ? QString::fromStdString(tags_[i].id)
+                                                          : QStringLiteral("tag%1").arg(i));
+        row.insert(QStringLiteral("visible"), static_cast<bool>(tagVisibility_[i]));
+        out.append(row);
+    }
+    return out;
+}
+
 double PoseController::motionSpeedDegPerS() const {
     return kMotionSpeedDegPerS;
 }
@@ -199,15 +251,81 @@ void PoseController::moveToTarget(double x_m, double y_m, double z_m) {
         cubeTestGoals_.clear();
         animationTimer_.stop();
         const arm::Vec3 target{x_m, y_m, z_m};
-        const std::vector<double> q0 = arm::initial_joint_angles_deg(joints_);
-        const arm::IkResult ik = arm::solve_ik_position_only(
-            joints_, target, q0, kIkMaxIters, kIkDamping, kIkToleranceM);
-        PoseState goal = poseFromAngles(ik.q_deg, target, ik.converged, ik.error_m, true);
+        std::vector<double> q0 = arm_geometry::InitialJointAngles(geometry_);
+        std::vector<bool> fixedJoints(q0.size(), false);
+        if (q0.size() > 5) {
+            q0[5] = approachAngleDeg_;
+            fixedJoints[5] = true;
+        }
+        std::vector<double> solved;
+        double error_m = 0.0;
+        const bool converged = arm_fk::SolveIkPositionOnlyWithFixedJoints(
+            geometry_, {x_m, y_m, z_m}, q0, fixedJoints, kIkMaxIters,
+            kIkDamping, kIkToleranceM, &solved, &error_m);
+        PoseState goal = poseFromAngles(solved, target, converged, error_m);
+        qInfo() << "Move target" << x_m << y_m << z_m << "approach joint5 deg"
+                << approachAngleDeg_ << "ik_converged" << converged
+                << "ik_error_m" << error_m;
         startAnimationTo(goal, QStringLiteral("Moving to target."), QStringLiteral("Move complete."));
     } catch (const std::exception& e) {
         message_ = QStringLiteral("Move failed: %1").arg(QString::fromUtf8(e.what()));
         emit poseChanged();
     }
+}
+
+void PoseController::setEndEffectorRotation(double joint5_deg) {
+    if (joints_.size() <= 5 || current_.q_deg.size() <= 5) {
+        setPose(current_, QStringLiteral("Joint5 is not available in the current config."));
+        return;
+    }
+
+    try {
+        cubeTestRunning_ = false;
+        cubeTestGoals_.clear();
+        cubeTestStep_ = 0;
+        cubeTestStepCount_ = 0;
+        animationTimer_.stop();
+
+        std::vector<double> q = current_.q_deg;
+        q[5] = std::min(std::max(joint5_deg, joints_[5].min_deg), joints_[5].max_deg);
+        approachAngleDeg_ = q[5];
+        setPose(poseFromAngles(q, current_.target_xyz_m, current_.ik_converged,
+                               current_.ik_error_m),
+                QStringLiteral("End effector rotation set from joint5."));
+        qInfo() << "Joint5 end-effector rotation set to" << q[5] << "deg";
+    } catch (const std::exception& e) {
+        message_ = QStringLiteral("Rotation update failed: %1").arg(QString::fromUtf8(e.what()));
+        emit poseChanged();
+    }
+}
+
+void PoseController::nudgeEndEffectorRotation(double delta_deg) {
+    setEndEffectorRotation(endEffectorRotationDeg() + delta_deg);
+}
+
+void PoseController::setApproachAngle(double approach_deg) {
+    if (joints_.size() > 5) {
+        approachAngleDeg_ =
+            std::min(std::max(approach_deg, joints_[5].min_deg), joints_[5].max_deg);
+    } else {
+        approachAngleDeg_ = approach_deg;
+    }
+    message_ = QStringLiteral("Approach angle will be applied on the next Move.");
+    qInfo() << "Approach angle set to" << approachAngleDeg_ << "deg";
+    emit poseChanged();
+}
+
+void PoseController::setAprilTagVisible(int tag_index, bool is_visible) {
+    if (tag_index < 0 || tag_index >= static_cast<int>(tagVisibility_.size())) {
+        message_ = QStringLiteral("Invalid AprilTag visibility index.");
+        emit poseChanged();
+        return;
+    }
+    tagVisibility_[static_cast<size_t>(tag_index)] = is_visible;
+    qInfo() << "AprilTag visibility changed" << tag_index << is_visible;
+    setPose(poseFromAngles(current_.q_deg, current_.target_xyz_m,
+                           current_.ik_converged, current_.ik_error_m),
+            QStringLiteral("AprilTag visibility updated."));
 }
 
 void PoseController::runCubeTest() {
@@ -241,17 +359,27 @@ void PoseController::runCubeTest() {
             {base.x - halfSide, base.y + halfSide, base.z + sideLength},
         };
 
-        const std::vector<double> q0 = arm::initial_joint_angles_deg(joints_);
+        std::vector<double> q0 = arm_geometry::InitialJointAngles(geometry_);
+        std::vector<bool> fixedJoints(q0.size(), false);
+        if (q0.size() > 5) {
+            q0[5] = approachAngleDeg_;
+            fixedJoints[5] = true;
+        }
         for (arm::Vec3 target : targets) {
-            const arm::IkResult ik = arm::solve_ik_position_only(
-                joints_, target, q0, kIkMaxIters, kIkDamping, kIkToleranceM);
-            cubeTestGoals_.push_back(poseFromAngles(ik.q_deg, target, ik.converged, ik.error_m, true));
+            std::vector<double> solved;
+            double error_m = 0.0;
+            const bool converged = arm_fk::SolveIkPositionOnlyWithFixedJoints(
+                geometry_, {target.x, target.y, target.z}, q0, fixedJoints,
+                kIkMaxIters, kIkDamping, kIkToleranceM, &solved, &error_m);
+            cubeTestGoals_.push_back(
+                poseFromAngles(solved, target, converged, error_m));
         }
         const arm::Vec3 zeroTarget = arm::end_effector_position(joints_, q_zero);
-        cubeTestGoals_.push_back(poseFromAngles(q_zero, zeroTarget, true, 0.0, true));
+        cubeTestGoals_.push_back(poseFromAngles(q_zero, zeroTarget, true, 0.0));
 
         cubeTestRunning_ = true;
         cubeTestStepCount_ = static_cast<int>(cubeTestGoals_.size());
+        qInfo() << "Cube test started with" << cubeTestStepCount_ << "steps";
         runNextCubeTestStep();
     } catch (const std::exception& e) {
         cubeTestRunning_ = false;
@@ -277,7 +405,7 @@ void PoseController::resetZero() {
         animationTimer_.stop();
         const std::vector<double> q_zero(joints_.size(), 0.0);
         const arm::Vec3 target = arm::end_effector_position(joints_, q_zero);
-        setPose(poseFromAngles(q_zero, target, true, 0.0, true), QStringLiteral("Zero pose loaded."));
+        setPose(poseFromAngles(q_zero, target, true, 0.0), QStringLiteral("Zero pose loaded."));
     } catch (const std::exception& e) {
         message_ = QStringLiteral("Reset failed: %1").arg(QString::fromUtf8(e.what()));
         emit poseChanged();
@@ -305,16 +433,15 @@ bool PoseController::reloadConfig() {
 }
 
 bool PoseController::saveConfig(const QVariantList& dimensions, const QVariantList& dhRows) {
-    const QString dimensionsPath = projectFile(QStringLiteral("configs/robot_dimensions.csv"));
-    const QString dhPath = projectFile(QStringLiteral("configs/dh_table.csv"));
-    QString oldDimensions;
-    QString oldDh;
+    const QString geometryPath = projectFile(QStringLiteral("configs/arm_geometry.csv"));
+    QString oldGeometry;
 
     try {
-        oldDimensions = readTextFile(dimensionsPath);
-        oldDh = readTextFile(dhPath);
+        oldGeometry = readTextFile(geometryPath);
 
-        QString dimensionsContent = QStringLiteral("name,value_m\n");
+        QString geometryContent = QStringLiteral(
+            "record_type,name,value,a_m,alpha_rad,d_m,theta_offset_rad,initial_deg,min_deg,max_deg,"
+            "attached_after_joint,local_x_m,local_y_m,local_z_m,local_roll_rad,local_pitch_rad,local_yaw_rad\n");
         for (const QVariant& value : dimensions) {
             const QVariantMap row = value.toMap();
             const QString name = requireStringField(row, QStringLiteral("name"));
@@ -324,28 +451,39 @@ bool PoseController::saveConfig(const QVariantList& dimensions, const QVariantLi
             if (!ok || parsed <= 0.0) {
                 throw std::runtime_error(QStringLiteral("Invalid dimension value for %1").arg(name).toStdString());
             }
-            dimensionsContent += QStringLiteral("%1,%2\n").arg(name, QString::number(parsed, 'f', 6));
+            geometryContent += QStringLiteral("dimension,%1,%2,,,,,,,,,,,,,,\n")
+                                   .arg(name, QString::number(parsed, 'f', 6));
         }
 
         if (dhRows.size() != 6) {
             throw std::runtime_error("DH table must contain exactly 6 rows");
         }
-        QString dhContent = QStringLiteral("name,a_m,alpha_rad,d_m,theta_offset_rad,initial_deg,min_deg,max_deg\n");
         for (const QVariant& value : dhRows) {
             const QVariantMap row = value.toMap();
-            dhContent += QStringLiteral("%1,%2,%3,%4,%5,%6,%7,%8\n")
-                             .arg(requireStringField(row, QStringLiteral("name")),
-                                  requireStringField(row, QStringLiteral("a_m")),
-                                  requireStringField(row, QStringLiteral("alpha_rad")),
-                                  requireStringField(row, QStringLiteral("d_m")),
-                                  requireStringField(row, QStringLiteral("theta_offset_rad")),
-                                  requireStringField(row, QStringLiteral("initial_deg")),
-                                  requireStringField(row, QStringLiteral("min_deg")),
-                                  requireStringField(row, QStringLiteral("max_deg")));
+            geometryContent += QStringLiteral("joint,%1,,%2,%3,%4,%5,%6,%7,%8,,,,,,,\n")
+                                   .arg(requireStringField(row, QStringLiteral("name")),
+                                        requireStringField(row, QStringLiteral("a_m")),
+                                        requireStringField(row, QStringLiteral("alpha_rad")),
+                                        requireStringField(row, QStringLiteral("d_m")),
+                                        requireStringField(row, QStringLiteral("theta_offset_rad")),
+                                        requireStringField(row, QStringLiteral("initial_deg")),
+                                        requireStringField(row, QStringLiteral("min_deg")),
+                                        requireStringField(row, QStringLiteral("max_deg")));
         }
 
-        writeTextFile(dimensionsPath, dimensionsContent);
-        writeTextFile(dhPath, dhContent);
+        for (const arm_geometry::AprilTagGeometry& tag : geometry_.april_tags) {
+            geometryContent += QStringLiteral("apriltag,%1,,,,,,,,,%2,%3,%4,%5,%6,%7,%8\n")
+                                   .arg(QString::fromStdString(tag.id),
+                                        QString::number(tag.attached_after_joint),
+                                        QString::number(tag.local_pose.position_m.x, 'g', 12),
+                                        QString::number(tag.local_pose.position_m.y, 'g', 12),
+                                        QString::number(tag.local_pose.position_m.z, 'g', 12),
+                                        QString::number(tag.local_pose.euler_rad.roll_rad, 'g', 12),
+                                        QString::number(tag.local_pose.euler_rad.pitch_rad, 'g', 12),
+                                        QString::number(tag.local_pose.euler_rad.yaw_rad, 'g', 12));
+        }
+
+        writeTextFile(geometryPath, geometryContent);
         loadConfigFromDisk();
         emit configChanged();
         resetZero();
@@ -353,11 +491,8 @@ bool PoseController::saveConfig(const QVariantList& dimensions, const QVariantLi
         emit poseChanged();
         return true;
     } catch (const std::exception& e) {
-        if (!oldDimensions.isEmpty()) {
-            writeTextFile(dimensionsPath, oldDimensions);
-        }
-        if (!oldDh.isEmpty()) {
-            writeTextFile(dhPath, oldDh);
+        if (!oldGeometry.isEmpty()) {
+            writeTextFile(geometryPath, oldGeometry);
         }
         message_ = QStringLiteral("Config save failed: %1").arg(QString::fromUtf8(e.what()));
         emit poseChanged();
@@ -370,79 +505,67 @@ QString PoseController::projectFile(const QString& relativePath) const {
 }
 
 void PoseController::loadConfigFromDisk() {
-    dimensionRows_ = readDimensionRows();
-    dhRows_ = readDhRows();
-    dimensionTable_ = arm::load_dimension_table(projectFile(QStringLiteral("configs/robot_dimensions.csv")).toStdString());
-    joints_ = arm::load_dh_table(projectFile(QStringLiteral("configs/dh_table.csv")).toStdString(), dimensionTable_);
-    tags_ = arm::load_tag_table(projectFile(QStringLiteral("configs/apriltags.csv")).toStdString(), dimensionTable_);
-}
+    geometry_ = arm_geometry::LoadArmGeometry(projectFile(QStringLiteral("configs/arm_geometry.csv")).toStdString());
+    dimensionTable_ = geometry_.dimensions;
 
-std::vector<PoseController::DimensionRow> PoseController::readDimensionRows() const {
-    QFile file(projectFile(QStringLiteral("configs/robot_dimensions.csv")));
-    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        throw std::runtime_error("Could not open robot_dimensions.csv");
+    dimensionRows_.clear();
+    const std::vector<QString> dimensionOrder = {
+        QStringLiteral("L0"), QStringLiteral("L1"), QStringLiteral("L2"),
+        QStringLiteral("L3"), QStringLiteral("L4"), QStringLiteral("L5"),
+        QStringLiteral("W0"), QStringLiteral("W1"), QStringLiteral("W2"),
+        QStringLiteral("G0"),
+    };
+    for (const QString& name : dimensionOrder) {
+        const auto it = dimensionTable_.find(name.toStdString());
+        if (it != dimensionTable_.end()) {
+            dimensionRows_.push_back({name, it->second});
+        }
     }
 
-    QTextStream in(&file);
-    in.readLine();
-    std::vector<DimensionRow> rows;
-    while (!in.atEnd()) {
-        const QString line = in.readLine().trimmed();
-        if (line.isEmpty()) {
-            continue;
-        }
-        const QStringList cols = line.split(QLatin1Char(','), Qt::KeepEmptyParts);
-        if (cols.size() != 2) {
-            throw std::runtime_error(QStringLiteral("Invalid dimension row: %1").arg(line).toStdString());
-        }
-        bool ok = false;
-        const double value = cols[1].trimmed().toDouble(&ok);
-        if (!ok) {
-            throw std::runtime_error(QStringLiteral("Invalid dimension value: %1").arg(line).toStdString());
-        }
-        rows.push_back({cols[0].trimmed(), value});
-    }
-    return rows;
-}
-
-std::vector<PoseController::DhRow> PoseController::readDhRows() const {
-    QFile file(projectFile(QStringLiteral("configs/dh_table.csv")));
-    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        throw std::runtime_error("Could not open dh_table.csv");
-    }
-
-    QTextStream in(&file);
-    in.readLine();
-    std::vector<DhRow> rows;
-    while (!in.atEnd()) {
-        const QString line = in.readLine().trimmed();
-        if (line.isEmpty()) {
-            continue;
-        }
-        const QStringList cols = line.split(QLatin1Char(','), Qt::KeepEmptyParts);
-        if (cols.size() != 8) {
-            throw std::runtime_error(QStringLiteral("Invalid DH row: %1").arg(line).toStdString());
-        }
-        rows.push_back({
-            cols[0].trimmed(),
-            cols[1].trimmed(),
-            cols[2].trimmed(),
-            cols[3].trimmed(),
-            cols[4].trimmed(),
-            cols[5].trimmed(),
-            cols[6].trimmed(),
-            cols[7].trimmed(),
+    dhRows_.clear();
+    joints_.clear();
+    for (const arm_geometry::JointGeometry& joint : geometry_.joints) {
+        dhRows_.push_back({
+            QString::fromStdString(joint.name),
+            QString::number(joint.a_m, 'g', 12),
+            QString::number(joint.alpha_rad, 'g', 12),
+            QString::number(joint.d_m, 'g', 12),
+            QString::number(joint.theta_offset_rad, 'g', 12),
+            QString::number(joint.initial_deg, 'g', 12),
+            QString::number(joint.min_deg, 'g', 12),
+            QString::number(joint.max_deg, 'g', 12),
+        });
+        joints_.push_back({
+            joint.name,
+            joint.a_m,
+            joint.alpha_rad,
+            joint.d_m,
+            joint.theta_offset_rad,
+            joint.initial_deg,
+            joint.min_deg,
+            joint.max_deg,
         });
     }
-    return rows;
+
+    tags_.clear();
+    for (const arm_geometry::AprilTagGeometry& tag : geometry_.april_tags) {
+        tags_.push_back({
+            tag.id,
+            tag.attached_after_joint,
+            {tag.local_pose.position_m.x, tag.local_pose.position_m.y,
+             tag.local_pose.position_m.z},
+        });
+    }
+    if (tagVisibility_.size() != geometry_.april_tags.size()) {
+        tagVisibility_.assign(geometry_.april_tags.size(), true);
+    }
 }
 
 PoseController::PoseState PoseController::poseFromAngles(
     const std::vector<double>& q_deg,
     arm::Vec3 target_xyz_m,
     bool ik_converged,
-    double ik_error_m,
-    bool estimateTagsFromInitialAngles) const {
+    double ik_error_m) const {
     PoseState state;
     state.q_deg = arm::clamp_to_limits(joints_, q_deg);
     state.chain_points_m = arm::chain_points(joints_, state.q_deg);
@@ -452,15 +575,34 @@ PoseController::PoseState PoseController::poseFromAngles(
     state.ik_converged = ik_converged;
     state.ik_error_m = ik_error_m;
 
-    const std::vector<double> tagInitialAngles =
-        estimateTagsFromInitialAngles ? arm::initial_joint_angles_deg(joints_) : state.q_deg;
-    const arm::TagPoseResult tagPose = arm::estimate_pose_from_tags(
-        joints_, tags_, state.tag_centers_m, tagInitialAngles, kTagMaxIters, kTagDamping, kTagToleranceM);
-    state.tag_q_deg = tagPose.q_deg;
-    state.tag_ee_xyz_m = tagPose.end_effector_xyz_m;
-    state.tag_converged = tagPose.converged;
-    state.tag_rms_error_m = tagPose.rms_error_m;
+    arm_fk::GeneratedRobotState generated = arm_fk::GenerateRobotState(geometry_, state.q_deg);
+    std::vector<arm_pose_estimator::AprilTagStatus> statuses;
+    for (size_t i = 0; i < geometry_.april_tags.size(); ++i) {
+        const bool is_visible = i >= tagVisibility_.size() ? true : tagVisibility_[i];
+        statuses.push_back({geometry_.april_tags[i].id, generated.april_tag_poses[i], is_visible});
+    }
+    const arm_pose_estimator::EstimateResult estimate =
+        arm_pose_estimator::EstimateEndEffectorPose(geometry_, statuses);
+    state.tag_q_deg = state.q_deg;
+    state.tag_ee_xyz_m = {
+        estimate.end_effector_pose.position_m.x,
+        estimate.end_effector_pose.position_m.y,
+        estimate.end_effector_pose.position_m.z,
+    };
+    state.tag_converged = estimate.converged;
+    state.tag_rms_error_m = estimate.rms_error;
     state.ee_compare_error_m = arm::distance(state.actual_ee_xyz_m, state.tag_ee_xyz_m);
+    state.target_actual_error_m = arm::distance(state.target_xyz_m, state.actual_ee_xyz_m);
+    state.target_calculated_error_m = arm::distance(state.target_xyz_m, state.tag_ee_xyz_m);
+    if (!state.ik_converged) {
+        state.solver_warning += QStringLiteral("IK did not converge. ");
+    }
+    if (!state.tag_converged) {
+        state.solver_warning += QStringLiteral("AprilTag pose estimate did not converge. ");
+    }
+    if (!QString::fromStdString(estimate.warning).isEmpty()) {
+        state.solver_warning += QString::fromStdString(estimate.warning);
+    }
     return state;
 }
 
@@ -525,8 +667,7 @@ void PoseController::advanceAnimation() {
         q,
         animationGoal_.target_xyz_m,
         animationGoal_.ik_converged,
-        animationGoal_.ik_error_m,
-        false);
+        animationGoal_.ik_error_m);
     setPose(std::move(frame), animationRunningMessage_);
 }
 

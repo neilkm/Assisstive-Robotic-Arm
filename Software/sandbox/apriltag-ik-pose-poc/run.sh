@@ -6,17 +6,24 @@ cd "$SCRIPT_DIR"
 
 MODE="${1:-gui}"
 
-"$SCRIPT_DIR/build.sh"
-
 case "$MODE" in
   gui)
-    APRILTAG_IK_POSE_POC_ROOT="$SCRIPT_DIR" build/apriltag_ik_pose_qml
+    shift || true
+    "${SCRIPT_DIR}/run_qml_app.sh" "$@"
     ;;
   smoke)
-    APRILTAG_IK_POSE_POC_ROOT="$SCRIPT_DIR" build/apriltag_ik_pose_backend --smoke
+    "${SCRIPT_DIR}/run_backend_app.sh" --smoke
+    ;;
+  backend)
+    shift || true
+    "${SCRIPT_DIR}/run_backend_app.sh" "$@"
+    ;;
+  qml)
+    shift || true
+    "${SCRIPT_DIR}/run_qml_app.sh" "$@"
     ;;
   *)
-    echo "Usage: ./run.sh [gui|smoke]" >&2
+    echo "Usage: ./run.sh [gui|qml|backend|smoke] [app args...]" >&2
     exit 2
     ;;
 esac

@@ -15,6 +15,8 @@ section "Build"
 
 section "C++ unit tests"
 APRILTAG_IK_POSE_POC_ROOT="${SCRIPT_DIR}" "${BUILD_DIR}/apriltag_ik_pose_unit_tests"
+APRILTAG_IK_POSE_POC_ROOT="${SCRIPT_DIR}" "${BUILD_DIR}/arm_forward_kinematics_tests"
+APRILTAG_IK_POSE_POC_ROOT="${SCRIPT_DIR}" "${BUILD_DIR}/april_tag_end_effector_estimator_tests"
 
 section "QML UI tests"
 QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-offscreen}" \
@@ -24,6 +26,10 @@ QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-offscreen}" \
 
 section "Backend CLI smoke"
 APRILTAG_IK_POSE_POC_ROOT="${SCRIPT_DIR}" "${BUILD_DIR}/apriltag_ik_pose_backend" --smoke
+
+section "Run script smoke"
+"${SCRIPT_DIR}/run_backend_app.sh" --smoke
+"${SCRIPT_DIR}/run_qml_app.sh" --smoke
 
 section "Trajectory CLI smoke"
 APRILTAG_IK_POSE_POC_ROOT="${SCRIPT_DIR}" "${BUILD_DIR}/apriltag_ik_pose_backend" \

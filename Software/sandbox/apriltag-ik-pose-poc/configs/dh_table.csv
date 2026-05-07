@@ -1,7 +1,0 @@
-name,a_m,alpha_rad,d_m,theta_offset_rad,initial_deg,min_deg,max_deg
-joint0_base_yaw,L0,-1.57079632679,0,0,0,-100,100
-joint1_shoulder,L1,0,0,-1.57079632679,0,-90,90
-joint2_elbow,L2,-1.57079632679,0,0,0,-120,120
-joint3_wrist_pitch,L3,1.57079632679,0,0,0,-120,120
-joint4_wrist_yaw,L4,-1.57079632679,0,0,0,-120,120
-joint5_tool_roll,0,0,L5,0,0,-180,180

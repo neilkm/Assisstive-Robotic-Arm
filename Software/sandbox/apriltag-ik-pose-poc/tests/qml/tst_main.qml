@@ -123,6 +123,23 @@ TestCase {
         property real ikErrorM: 0
         property real tagRmsErrorM: 0
         property real endEffectorCompareErrorM: 0
+        property real targetActualErrorM: 0
+        property real targetCalculatedErrorM: 0
+        property real endEffectorRotationDeg: 0
+        property real endEffectorRotationMinDeg: -180
+        property real endEffectorRotationMaxDeg: 180
+        property real approachAngleDeg: 0
+        property string solverWarning: ""
+        property var tagVisibility: [
+            {index: 0, id: "apriltag0", visible: true},
+            {index: 1, id: "apriltag1", visible: true},
+            {index: 2, id: "apriltag2", visible: true},
+            {index: 3, id: "apriltag3", visible: true},
+            {index: 4, id: "apriltag4", visible: true},
+            {index: 5, id: "apriltag5", visible: true},
+            {index: 6, id: "apriltag6", visible: true},
+            {index: 7, id: "apriltag7", visible: true}
+        ]
         property real motionSpeedDegPerS: 5
         property bool moving: false
         property bool cubeTestRunning: false
@@ -132,6 +149,10 @@ TestCase {
         property int cubeRunCount: 0
         property int moveCount: 0
         property int resetCount: 0
+        property int rotationSetCount: 0
+        property int rotationNudgeCount: 0
+        property int approachSetCount: 0
+        property int tagVisibilitySetCount: 0
         property int saveCount: 0
         property int reloadCount: 0
 
@@ -151,6 +172,32 @@ TestCase {
             resetCount += 1
         }
 
+        function setEndEffectorRotation(value) {
+            rotationSetCount += 1
+            endEffectorRotationDeg = value
+            poseChanged()
+        }
+
+        function nudgeEndEffectorRotation(delta) {
+            rotationNudgeCount += 1
+            endEffectorRotationDeg += delta
+            poseChanged()
+        }
+
+        function setApproachAngle(value) {
+            approachSetCount += 1
+            approachAngleDeg = value
+            poseChanged()
+        }
+
+        function setAprilTagVisible(index, isVisible) {
+            tagVisibilitySetCount += 1
+            var updated = tagVisibility.slice()
+            updated[index] = {index: index, id: updated[index].id, visible: isVisible}
+            tagVisibility = updated
+            poseChanged()
+        }
+
         function reloadConfig() {
             reloadCount += 1
             configChanged()
@@ -166,8 +213,14 @@ TestCase {
             cubeRunCount = 0
             moveCount = 0
             resetCount = 0
+            rotationSetCount = 0
+            rotationNudgeCount = 0
+            approachSetCount = 0
+            tagVisibilitySetCount = 0
             saveCount = 0
             reloadCount = 0
+            endEffectorRotationDeg = 0
+            approachAngleDeg = 0
             cubeTestRunning = false
             cubeTestStep = 0
             cubeTestStepCount = 0
@@ -189,8 +242,14 @@ TestCase {
 
         var saveButton = findNamed(createdWindow, "saveConfigButton")
         var reloadButton = findNamed(createdWindow, "reloadConfigButton")
+        var rotationInput = findNamed(createdWindow, "rotationInput")
+        var rotationSetButton = findNamed(createdWindow, "rotationSetButton")
+        var approachSetButton = findNamed(createdWindow, "approachSetButton")
         verify(saveButton !== null)
         verify(reloadButton !== null)
+        verify(rotationInput !== null)
+        verify(rotationSetButton !== null)
+        verify(approachSetButton !== null)
     }
 
     function test_cubeButtonStartsCubeTestThroughController() {
@@ -204,5 +263,45 @@ TestCase {
         compare(poseController.cubeRunCount, 1)
         verify(poseController.cubeTestRunning)
         compare(poseController.cubeTestStepCount, 9)
+    }
+
+    function test_rotationControlsDriveJoint5ControllerApi() {
+        createdWindow = createMainWindow()
+
+        var plusButton = findNamed(createdWindow, "rotationPlusButton")
+        var setButton = findNamed(createdWindow, "rotationSetButton")
+        var rotationInput = findNamed(createdWindow, "rotationInput")
+        verify(plusButton !== null)
+        verify(setButton !== null)
+        verify(rotationInput !== null)
+
+        mouseClick(plusButton)
+        compare(poseController.rotationNudgeCount, 1)
+        compare(poseController.endEffectorRotationDeg, 15)
+
+        rotationInput.text = "42"
+        mouseClick(setButton)
+        compare(poseController.rotationSetCount, 1)
+        compare(poseController.endEffectorRotationDeg, 42)
+    }
+
+    function test_approachAndTagVisibilityControlsDriveControllerApi() {
+        createdWindow = createMainWindow()
+
+        var approachInput = findNamed(createdWindow, "approachInput")
+        var approachSetButton = findNamed(createdWindow, "approachSetButton")
+        var tag0Button = findNamed(createdWindow, "tagVisibilityButton_0")
+        verify(approachInput !== null)
+        verify(approachSetButton !== null)
+        verify(tag0Button !== null)
+
+        approachInput.text = "-33"
+        mouseClick(approachSetButton)
+        compare(poseController.approachSetCount, 1)
+        compare(poseController.approachAngleDeg, -33)
+
+        mouseClick(tag0Button)
+        compare(poseController.tagVisibilitySetCount, 1)
+        compare(poseController.tagVisibility[0].visible, false)
     }
 }

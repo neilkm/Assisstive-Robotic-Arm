@@ -1,3 +1,4 @@
+#include "ArmGeometry.hpp"
 #include "kinematics.hpp"
 
 #include <cmath>
@@ -40,10 +41,31 @@ struct TestFixture {
     std::vector<arm::JointSpec> joints;
     std::vector<arm::TagSpec> tags;
 
-    TestFixture()
-        : dimensions(arm::load_dimension_table(project_path("configs/robot_dimensions.csv"))),
-          joints(arm::load_dh_table(project_path("configs/dh_table.csv"), dimensions)),
-          tags(arm::load_tag_table(project_path("configs/apriltags.csv"), dimensions)) {}
+    TestFixture() {
+        const arm_geometry::ArmGeometry geometry =
+            arm_geometry::LoadArmGeometry(project_path("configs/arm_geometry.csv"));
+        dimensions = geometry.dimensions;
+        for (const arm_geometry::JointGeometry& joint : geometry.joints) {
+            joints.push_back({
+                joint.name,
+                joint.a_m,
+                joint.alpha_rad,
+                joint.d_m,
+                joint.theta_offset_rad,
+                joint.initial_deg,
+                joint.min_deg,
+                joint.max_deg,
+            });
+        }
+        for (const arm_geometry::AprilTagGeometry& tag : geometry.april_tags) {
+            tags.push_back({
+                tag.id,
+                tag.attached_after_joint,
+                {tag.local_pose.position_m.x, tag.local_pose.position_m.y,
+                 tag.local_pose.position_m.z},
+            });
+        }
+    }
 };
 
 void test_config_loads_six_joints_and_eight_tags() {

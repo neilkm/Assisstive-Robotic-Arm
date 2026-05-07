@@ -1,6 +1,9 @@
 #pragma once
 
 #include "kinematics.hpp"
+#include "AprilTagEndEffectorEstimator.hpp"
+#include "ArmForwardKinematics.hpp"
+#include "ArmGeometry.hpp"
 
 #include <QObject>
 #include <QString>
@@ -30,6 +33,14 @@ class PoseController final : public QObject {
     Q_PROPERTY(double ikErrorM READ ikErrorM NOTIFY poseChanged)
     Q_PROPERTY(double tagRmsErrorM READ tagRmsErrorM NOTIFY poseChanged)
     Q_PROPERTY(double endEffectorCompareErrorM READ endEffectorCompareErrorM NOTIFY poseChanged)
+    Q_PROPERTY(double targetActualErrorM READ targetActualErrorM NOTIFY poseChanged)
+    Q_PROPERTY(double targetCalculatedErrorM READ targetCalculatedErrorM NOTIFY poseChanged)
+    Q_PROPERTY(double endEffectorRotationDeg READ endEffectorRotationDeg NOTIFY poseChanged)
+    Q_PROPERTY(double endEffectorRotationMinDeg READ endEffectorRotationMinDeg NOTIFY configChanged)
+    Q_PROPERTY(double endEffectorRotationMaxDeg READ endEffectorRotationMaxDeg NOTIFY configChanged)
+    Q_PROPERTY(double approachAngleDeg READ approachAngleDeg NOTIFY poseChanged)
+    Q_PROPERTY(QString solverWarning READ solverWarning NOTIFY poseChanged)
+    Q_PROPERTY(QVariantList tagVisibility READ tagVisibility NOTIFY poseChanged)
     Q_PROPERTY(double motionSpeedDegPerS READ motionSpeedDegPerS CONSTANT)
     Q_PROPERTY(bool moving READ moving NOTIFY poseChanged)
     Q_PROPERTY(bool cubeTestRunning READ cubeTestRunning NOTIFY poseChanged)
@@ -54,6 +65,14 @@ public:
     [[nodiscard]] double ikErrorM() const;
     [[nodiscard]] double tagRmsErrorM() const;
     [[nodiscard]] double endEffectorCompareErrorM() const;
+    [[nodiscard]] double targetActualErrorM() const;
+    [[nodiscard]] double targetCalculatedErrorM() const;
+    [[nodiscard]] double endEffectorRotationDeg() const;
+    [[nodiscard]] double endEffectorRotationMinDeg() const;
+    [[nodiscard]] double endEffectorRotationMaxDeg() const;
+    [[nodiscard]] double approachAngleDeg() const;
+    [[nodiscard]] QString solverWarning() const;
+    [[nodiscard]] QVariantList tagVisibility() const;
     [[nodiscard]] double motionSpeedDegPerS() const;
     [[nodiscard]] bool moving() const;
     [[nodiscard]] bool cubeTestRunning() const;
@@ -62,6 +81,10 @@ public:
     [[nodiscard]] QString message() const;
 
     Q_INVOKABLE void moveToTarget(double x_m, double y_m, double z_m);
+    Q_INVOKABLE void setEndEffectorRotation(double joint5_deg);
+    Q_INVOKABLE void nudgeEndEffectorRotation(double delta_deg);
+    Q_INVOKABLE void setApproachAngle(double approach_deg);
+    Q_INVOKABLE void setAprilTagVisible(int tag_index, bool is_visible);
     Q_INVOKABLE void runCubeTest();
     Q_INVOKABLE void resetZero();
     Q_INVOKABLE bool reloadConfig();
@@ -101,18 +124,18 @@ private:
         double ik_error_m = 0.0;
         double tag_rms_error_m = 0.0;
         double ee_compare_error_m = 0.0;
+        double target_actual_error_m = 0.0;
+        double target_calculated_error_m = 0.0;
+        QString solver_warning;
     };
 
     [[nodiscard]] QString projectFile(const QString& relativePath) const;
     void loadConfigFromDisk();
-    [[nodiscard]] std::vector<DimensionRow> readDimensionRows() const;
-    [[nodiscard]] std::vector<DhRow> readDhRows() const;
     [[nodiscard]] PoseState poseFromAngles(
         const std::vector<double>& q_deg,
         arm::Vec3 target_xyz_m,
         bool ik_converged,
-        double ik_error_m,
-        bool estimateTagsFromInitialAngles) const;
+        double ik_error_m) const;
     void setPose(PoseState state, QString message);
     void startAnimationTo(PoseState goalState, QString runningMessage, QString doneMessage);
     void advanceAnimation();
@@ -123,6 +146,7 @@ private:
 
     QString projectRoot_;
     std::map<std::string, double> dimensionTable_;
+    arm_geometry::ArmGeometry geometry_;
     std::vector<DimensionRow> dimensionRows_;
     std::vector<DhRow> dhRows_;
     std::vector<arm::JointSpec> joints_;
@@ -137,6 +161,8 @@ private:
     bool cubeTestRunning_ = false;
     int cubeTestStep_ = 0;
     int cubeTestStepCount_ = 0;
+    double approachAngleDeg_ = 0.0;
+    std::vector<bool> tagVisibility_;
     QString animationRunningMessage_;
     QString animationDoneMessage_;
     QString message_;

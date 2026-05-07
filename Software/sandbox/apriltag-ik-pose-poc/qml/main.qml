@@ -10,18 +10,24 @@ Window {
     minimumHeight: 680
     visible: true
     title: "AprilTag IK Pose POC"
-    color: "#151719"
+    color: theme.windowColor
 
     property string currentPage: "pose"
-    property color panelColor: "#202327"
-    property color borderColor: "#3d444f"
-    property color textColor: "#f4f1e8"
-    property color mutedTextColor: "#b9b6aa"
-    property color actionColor: "#2f80ed"
-    property color warningColor: "#f2c94c"
-    property color purpleColor: "#9b5de5"
-    property color greenColor: "#27ae60"
-    property color redColor: "#eb5757"
+    property color panelColor: theme.panelColor
+    property color borderColor: theme.borderColor
+    property color textColor: theme.textColor
+    property color mutedTextColor: theme.mutedTextColor
+    property color actionColor: theme.actionColor
+    property color warningColor: theme.warningColor
+    property color purpleColor: theme.purpleColor
+    property color greenColor: theme.greenColor
+    property color redColor: theme.redColor
+    property color secondaryButtonColor: theme.secondaryButtonColor
+    property string fontFamily: theme.fontFamily
+
+    Theme {
+        id: theme
+    }
 
     function fixed(value, digits) {
         return Number(value).toFixed(digits)
@@ -89,88 +95,13 @@ Window {
         id: dhModel
     }
 
-    component ToolButton: Rectangle {
-        id: buttonRoot
-        property alias text: label.text
-        property color fillColor: root.actionColor
-        property color textColor: "#ffffff"
-        signal clicked()
-
-        radius: 6
-        height: 42
-        color: enabled ? fillColor : "#34383e"
-        border.color: enabled ? Qt.lighter(fillColor, 1.25) : root.borderColor
-        border.width: 1
-        opacity: enabled ? 1.0 : 0.62
-
-        Text {
-            id: label
-            anchors.centerIn: parent
-            color: buttonRoot.textColor
-            font.pixelSize: 14
-            font.bold: true
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
-            elide: Text.ElideRight
-            width: parent.width - 16
-        }
-
-        MouseArea {
-            anchors.fill: parent
-            enabled: buttonRoot.enabled
-            onClicked: buttonRoot.clicked()
-        }
-    }
-
-    component InputBox: Rectangle {
-        id: inputRoot
-        property alias text: input.text
-        property string label: ""
-        signal edited(string value)
-
-        height: 48
-        radius: 6
-        color: "#111316"
-        border.color: root.borderColor
-        border.width: 1
-
-        Text {
-            anchors.left: parent.left
-            anchors.leftMargin: 10
-            anchors.top: parent.top
-            anchors.topMargin: 5
-            text: inputRoot.label
-            color: root.mutedTextColor
-            font.pixelSize: 10
-            font.bold: true
-        }
-
-        TextInput {
-            id: input
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.bottom: parent.bottom
-            anchors.leftMargin: 10
-            anchors.rightMargin: 10
-            anchors.bottomMargin: 5
-            height: 24
-            color: root.textColor
-            selectedTextColor: "#101820"
-            selectionColor: root.warningColor
-            font.pixelSize: 16
-            clip: true
-            selectByMouse: true
-            onTextChanged: inputRoot.edited(text)
-        }
-    }
-
     Rectangle {
         id: topBar
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
         height: 64
-        color: "#111316"
+        color: theme.toolbarColor
         border.color: root.borderColor
         border.width: 1
 
@@ -184,7 +115,7 @@ Window {
                 objectName: "posePageButton"
                 width: 96
                 text: "Pose"
-                fillColor: root.currentPage === "pose" ? root.actionColor : "#2b3036"
+                fillColor: root.currentPage === "pose" ? root.actionColor : theme.navigationInactiveColor
                 onClicked: root.currentPage = "pose"
             }
 
@@ -192,7 +123,7 @@ Window {
                 objectName: "configPageButton"
                 width: 96
                 text: "Config"
-                fillColor: root.currentPage === "config" ? root.actionColor : "#2b3036"
+                fillColor: root.currentPage === "config" ? root.actionColor : theme.navigationInactiveColor
                 onClicked: root.currentPage = "config"
             }
         }
@@ -201,6 +132,7 @@ Window {
             anchors.centerIn: parent
             text: "AprilTag IK Pose Proof Of Concept"
             color: root.textColor
+            font.family: root.fontFamily
             font.pixelSize: 22
             font.bold: true
         }
@@ -211,6 +143,7 @@ Window {
             anchors.verticalCenter: parent.verticalCenter
             text: poseController.moving ? "Moving" : "Idle"
             color: poseController.moving ? root.warningColor : root.greenColor
+            font.family: root.fontFamily
             font.pixelSize: 14
             font.bold: true
         }
@@ -279,7 +212,7 @@ Window {
                 ctx.stroke()
                 if (label && label.length > 0) {
                     ctx.fillStyle = root.textColor
-                    ctx.font = "11px sans-serif"
+                    ctx.font = "11px " + root.fontFamily
                     ctx.fillText(label, p.x + radius + 4, p.y - radius - 2)
                 }
             }
@@ -306,23 +239,27 @@ Window {
                 for (var i = 0; i < edges.length; ++i) {
                     drawLine(ctx, v[edges[i][0]], v[edges[i][1]], "#4d5967", 1.5)
                 }
+                if (poseController.cubeTestRunning && poseController.cubeTestStep >= 1 && poseController.cubeTestStep <= 8) {
+                    var activeVertex = poseController.cubeTestStep - 1
+                    drawPoint(ctx, v[activeVertex], 11, root.warningColor, "V" + poseController.cubeTestStep)
+                }
             }
 
             onPaint: {
                 var ctx = getContext("2d")
                 ctx.clearRect(0, 0, width, height)
-                ctx.fillStyle = "#171b1f"
+                ctx.fillStyle = theme.canvasColor
                 ctx.fillRect(0, 0, width, height)
 
                 var gridLimit = Math.max(Number(poseController.axisLimit), 12.0)
                 var step = Math.max(1.0, Math.round(gridLimit / 6.0))
                 for (var i = -gridLimit; i <= gridLimit + 0.001; i += step) {
-                    drawLine(ctx, {x: -gridLimit, y: i, z: 0}, {x: gridLimit, y: i, z: 0}, "#2c333b", 1)
-                    drawLine(ctx, {x: i, y: -gridLimit, z: 0}, {x: i, y: gridLimit, z: 0}, "#2c333b", 1)
+                    drawLine(ctx, {x: -gridLimit, y: i, z: 0}, {x: gridLimit, y: i, z: 0}, theme.gridLineColor, 1)
+                    drawLine(ctx, {x: i, y: -gridLimit, z: 0}, {x: i, y: gridLimit, z: 0}, theme.gridLineColor, 1)
                 }
-                drawLine(ctx, {x: -gridLimit, y: 0, z: 0}, {x: gridLimit, y: 0, z: 0}, "#506073", 2)
-                drawLine(ctx, {x: 0, y: -gridLimit, z: 0}, {x: 0, y: gridLimit, z: 0}, "#506073", 2)
-                drawLine(ctx, {x: 0, y: 0, z: 0}, {x: 0, y: 0, z: gridLimit}, "#506073", 2)
+                drawLine(ctx, {x: -gridLimit, y: 0, z: 0}, {x: gridLimit, y: 0, z: 0}, theme.axisLineColor, 2)
+                drawLine(ctx, {x: 0, y: -gridLimit, z: 0}, {x: 0, y: gridLimit, z: 0}, theme.axisLineColor, 2)
+                drawLine(ctx, {x: 0, y: 0, z: 0}, {x: 0, y: 0, z: gridLimit}, theme.axisLineColor, 2)
 
                 drawCube(ctx)
 
@@ -337,7 +274,8 @@ Window {
 
                 var tags = poseController.tagPoints
                 for (var t = 0; t < tags.length; ++t) {
-                    drawPoint(ctx, tags[t], 6, root.purpleColor, "")
+                    drawPoint(ctx, tags[t], tags[t].visible ? 6 : 4,
+                              tags[t].visible ? root.purpleColor : theme.inactiveTagColor, "")
                 }
 
                 drawPoint(ctx, poseController.actualEndEffector, 8, root.redColor, "FK")
@@ -389,12 +327,13 @@ Window {
             Column {
                 anchors.fill: parent
                 anchors.margins: 18
-                spacing: 14
+                spacing: 12
 
                 Text {
                     width: parent.width
                     text: "Target XYZ"
                     color: root.textColor
+                    font.family: root.fontFamily
                     font.pixelSize: 18
                     font.bold: true
                 }
@@ -441,7 +380,7 @@ Window {
                         objectName: "zeroButton"
                         width: (parent.width - 16) / 3
                         text: "Zero"
-                        fillColor: "#5f6b7a"
+                        fillColor: root.secondaryButtonColor
                         onClicked: poseController.resetZero()
                     }
 
@@ -455,6 +394,84 @@ Window {
                     }
                 }
 
+                Text {
+                    width: parent.width
+                    text: "Approach Angle"
+                    color: root.textColor
+                    font.family: root.fontFamily
+                    font.pixelSize: 18
+                    font.bold: true
+                }
+
+                Row {
+                    width: parent.width
+                    spacing: 8
+
+                    InputBox {
+                        id: approachInput
+                        objectName: "approachInput"
+                        width: parent.width - 66
+                        label: "Joint5 at target deg"
+                        text: fixed(poseController.approachAngleDeg, 1)
+                    }
+
+                    ToolButton {
+                        objectName: "approachSetButton"
+                        width: 58
+                        text: "Set"
+                        enabled: !poseController.moving && !poseController.cubeTestRunning
+                        onClicked: poseController.setApproachAngle(Number(approachInput.text))
+                    }
+                }
+
+                Text {
+                    width: parent.width
+                    text: "End Effector Rotation"
+                    color: root.textColor
+                    font.family: root.fontFamily
+                    font.pixelSize: 18
+                    font.bold: true
+                }
+
+                Row {
+                    width: parent.width
+                    spacing: 8
+
+                    ToolButton {
+                        objectName: "rotationMinusButton"
+                        width: 58
+                        text: "-15"
+                        fillColor: root.secondaryButtonColor
+                        enabled: !poseController.moving && !poseController.cubeTestRunning
+                        onClicked: poseController.nudgeEndEffectorRotation(-15)
+                    }
+
+                    InputBox {
+                        id: rotationInput
+                        objectName: "rotationInput"
+                        width: parent.width - 190
+                        label: "Joint5 deg"
+                        text: fixed(poseController.endEffectorRotationDeg, 1)
+                    }
+
+                    ToolButton {
+                        objectName: "rotationSetButton"
+                        width: 58
+                        text: "Set"
+                        enabled: !poseController.moving && !poseController.cubeTestRunning
+                        onClicked: poseController.setEndEffectorRotation(Number(rotationInput.text))
+                    }
+
+                    ToolButton {
+                        objectName: "rotationPlusButton"
+                        width: 58
+                        text: "+15"
+                        fillColor: root.secondaryButtonColor
+                        enabled: !poseController.moving && !poseController.cubeTestRunning
+                        onClicked: poseController.nudgeEndEffectorRotation(15)
+                    }
+                }
+
                 Rectangle {
                     width: parent.width
                     height: 1
@@ -465,6 +482,7 @@ Window {
                     width: parent.width
                     text: "Solvers"
                     color: root.textColor
+                    font.family: root.fontFamily
                     font.pixelSize: 18
                     font.bold: true
                 }
@@ -473,16 +491,30 @@ Window {
                     width: parent.width
                     text: "IK: " + poseController.ikConverged + "   error " + fixed(poseController.ikErrorM, 5) + " m\n"
                           + "Tag: " + poseController.tagConverged + "   RMS " + fixed(poseController.tagRmsErrorM, 5) + " m\n"
-                          + "EE diff: " + fixed(poseController.endEffectorCompareErrorM, 5) + " m"
+                          + "Target->FK: " + fixed(poseController.targetActualErrorM, 5) + " m\n"
+                          + "Target->Tag calc: " + fixed(poseController.targetCalculatedErrorM, 5) + " m\n"
+                          + "FK->Tag calc: " + fixed(poseController.endEffectorCompareErrorM, 5) + " m"
                     color: root.mutedTextColor
+                    font.family: root.fontFamily
                     font.pixelSize: 14
                     lineHeight: 1.25
                 }
 
                 Text {
                     width: parent.width
+                    visible: poseController.solverWarning.length > 0
+                    text: poseController.solverWarning
+                    color: root.warningColor
+                    font.family: root.fontFamily
+                    font.pixelSize: 13
+                    wrapMode: Text.WordWrap
+                }
+
+                Text {
+                    width: parent.width
                     text: "End Effector"
                     color: root.textColor
+                    font.family: root.fontFamily
                     font.pixelSize: 18
                     font.bold: true
                 }
@@ -493,6 +525,7 @@ Window {
                           + "Tag: " + pointText(poseController.tagEndEffector) + "\n"
                           + "Target: " + pointText(poseController.targetPoint)
                     color: root.mutedTextColor
+                    font.family: root.fontFamily
                     font.pixelSize: 14
                     lineHeight: 1.25
                 }
@@ -501,13 +534,14 @@ Window {
                     width: parent.width
                     text: "Joint Angles"
                     color: root.textColor
+                    font.family: root.fontFamily
                     font.pixelSize: 18
                     font.bold: true
                 }
 
                 ListView {
                     width: parent.width
-                    height: 168
+                    height: 100
                     interactive: false
                     model: poseController.jointAngles
                     spacing: 4
@@ -521,6 +555,7 @@ Window {
                             width: 160
                             text: modelData.name
                             color: root.mutedTextColor
+                            font.family: root.fontFamily
                             font.pixelSize: 12
                             elide: Text.ElideRight
                         }
@@ -529,6 +564,7 @@ Window {
                             width: 86
                             text: fixed(modelData.angleDeg, 2) + " deg"
                             color: root.textColor
+                            font.family: root.fontFamily
                             font.pixelSize: 12
                             horizontalAlignment: Text.AlignRight
                         }
@@ -537,8 +573,37 @@ Window {
                             width: 86
                             text: fixed(modelData.tagAngleDeg, 2) + " tag"
                             color: root.greenColor
+                            font.family: root.fontFamily
                             font.pixelSize: 12
                             horizontalAlignment: Text.AlignRight
+                        }
+                    }
+                }
+
+                Text {
+                    width: parent.width
+                    text: "AprilTag Visibility"
+                    color: root.textColor
+                    font.family: root.fontFamily
+                    font.pixelSize: 18
+                    font.bold: true
+                }
+
+                Grid {
+                    width: parent.width
+                    columns: 4
+                    columnSpacing: 8
+                    rowSpacing: 8
+
+                    Repeater {
+                        model: poseController.tagVisibility
+                        delegate: ToolButton {
+                            objectName: "tagVisibilityButton_" + modelData.index
+                            width: (sidePanel.width - 36 - 24) / 4
+                            height: 32
+                            text: modelData.id
+                            fillColor: modelData.visible ? root.greenColor : root.secondaryButtonColor
+                            onClicked: poseController.setAprilTagVisible(modelData.index, !modelData.visible)
                         }
                     }
                 }
@@ -549,6 +614,7 @@ Window {
                           ? "Cube test step " + poseController.cubeTestStep + " of " + poseController.cubeTestStepCount
                           : poseController.message
                     color: poseController.cubeTestRunning ? root.warningColor : root.mutedTextColor
+                    font.family: root.fontFamily
                     font.pixelSize: 14
                     wrapMode: Text.WordWrap
                 }
@@ -566,7 +632,7 @@ Window {
 
         Rectangle {
             anchors.fill: parent
-            color: "#171b1f"
+            color: theme.canvasColor
         }
 
         Row {
@@ -591,6 +657,7 @@ Window {
                         width: parent.width
                         text: "Dimensions"
                         color: root.textColor
+                        font.family: root.fontFamily
                         font.pixelSize: 18
                         font.bold: true
                     }
@@ -607,6 +674,7 @@ Window {
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: model.name
                                 color: root.mutedTextColor
+                                font.family: root.fontFamily
                                 font.pixelSize: 13
                                 font.bold: true
                             }
@@ -637,7 +705,7 @@ Window {
                         objectName: "reloadConfigButton"
                         width: parent.width
                         text: "Reload CSV"
-                        fillColor: "#5f6b7a"
+                        fillColor: root.secondaryButtonColor
                         onClicked: poseController.reloadConfig()
                     }
                 }
@@ -660,6 +728,7 @@ Window {
                         width: parent.width
                         text: "DH Table"
                         color: root.textColor
+                        font.family: root.fontFamily
                         font.pixelSize: 18
                         font.bold: true
                     }
@@ -674,6 +743,7 @@ Window {
                                 width: index === 0 ? 180 : (parent.width - 180 - 42) / 7
                                 text: modelData
                                 color: root.mutedTextColor
+                                font.family: root.fontFamily
                                 font.pixelSize: 12
                                 font.bold: true
                             }
@@ -749,6 +819,7 @@ Window {
                         width: parent.width
                         text: poseController.message
                         color: root.mutedTextColor
+                        font.family: root.fontFamily
                         font.pixelSize: 13
                         wrapMode: Text.WordWrap
                     }

@@ -1,3 +1,4 @@
+#include "ArmGeometry.hpp"
 #include "kinematics.hpp"
 
 #include <algorithm>
@@ -19,12 +20,47 @@ constexpr double kTagDamping = 0.025;
 constexpr double kTagToleranceM = 0.001;
 constexpr double kMotionSpeedDegPerS = 5.0;
 
+struct LegacyGeometry {
+    std::map<std::string, double> dimensions;
+    std::vector<arm::JointSpec> joints;
+    std::vector<arm::TagSpec> tags;
+};
+
 std::string project_path(const std::string& relative) {
     const char* root = std::getenv("APRILTAG_IK_POSE_POC_ROOT");
     if (root != nullptr) {
         return std::string(root) + "/" + relative;
     }
     return relative;
+}
+
+LegacyGeometry load_legacy_geometry() {
+    const arm_geometry::ArmGeometry geometry =
+        arm_geometry::LoadArmGeometry(project_path("configs/arm_geometry.csv"));
+
+    LegacyGeometry legacy;
+    legacy.dimensions = geometry.dimensions;
+    for (const arm_geometry::JointGeometry& joint : geometry.joints) {
+        legacy.joints.push_back({
+            joint.name,
+            joint.a_m,
+            joint.alpha_rad,
+            joint.d_m,
+            joint.theta_offset_rad,
+            joint.initial_deg,
+            joint.min_deg,
+            joint.max_deg,
+        });
+    }
+    for (const arm_geometry::AprilTagGeometry& tag : geometry.april_tags) {
+        legacy.tags.push_back({
+            tag.id,
+            tag.attached_after_joint,
+            {tag.local_pose.position_m.x, tag.local_pose.position_m.y,
+             tag.local_pose.position_m.z},
+        });
+    }
+    return legacy;
 }
 
 void print_vec3(std::ostream& os, arm::Vec3 v) {
@@ -137,12 +173,9 @@ void print_pose_json(
 }
 
 int run_case(arm::Vec3 target, bool smoke) {
-    const std::map<std::string, double> dimensions =
-        arm::load_dimension_table(project_path("configs/robot_dimensions.csv"));
-    const std::vector<arm::JointSpec> joints =
-        arm::load_dh_table(project_path("configs/dh_table.csv"), dimensions);
-    const std::vector<arm::TagSpec> tags =
-        arm::load_tag_table(project_path("configs/apriltags.csv"), dimensions);
+    const LegacyGeometry geometry = load_legacy_geometry();
+    const std::vector<arm::JointSpec>& joints = geometry.joints;
+    const std::vector<arm::TagSpec>& tags = geometry.tags;
     const std::vector<double> q0 = arm::initial_joint_angles_deg(joints);
 
     const arm::IkResult ik = arm::solve_ik_position_only(
@@ -170,12 +203,9 @@ int run_case(arm::Vec3 target, bool smoke) {
 }
 
 int run_zero_state(bool smoke) {
-    const std::map<std::string, double> dimensions =
-        arm::load_dimension_table(project_path("configs/robot_dimensions.csv"));
-    const std::vector<arm::JointSpec> joints =
-        arm::load_dh_table(project_path("configs/dh_table.csv"), dimensions);
-    const std::vector<arm::TagSpec> tags =
-        arm::load_tag_table(project_path("configs/apriltags.csv"), dimensions);
+    const LegacyGeometry geometry = load_legacy_geometry();
+    const std::vector<arm::JointSpec>& joints = geometry.joints;
+    const std::vector<arm::TagSpec>& tags = geometry.tags;
     const std::vector<double> q_zero(joints.size(), 0.0);
     const std::vector<arm::Vec3> observed_tags = arm::tag_centers_from_joint_angles(joints, tags, q_zero);
     const arm::TagPoseResult tag_pose = arm::estimate_pose_from_tags(
@@ -198,12 +228,9 @@ int run_zero_state(bool smoke) {
 }
 
 int run_angles(const std::vector<double>& q_deg) {
-    const std::map<std::string, double> dimensions =
-        arm::load_dimension_table(project_path("configs/robot_dimensions.csv"));
-    const std::vector<arm::JointSpec> joints =
-        arm::load_dh_table(project_path("configs/dh_table.csv"), dimensions);
-    const std::vector<arm::TagSpec> tags =
-        arm::load_tag_table(project_path("configs/apriltags.csv"), dimensions);
+    const LegacyGeometry geometry = load_legacy_geometry();
+    const std::vector<arm::JointSpec>& joints = geometry.joints;
+    const std::vector<arm::TagSpec>& tags = geometry.tags;
     const std::vector<double> q_clamped = arm::clamp_to_limits(joints, q_deg);
     const std::vector<arm::Vec3> observed_tags = arm::tag_centers_from_joint_angles(joints, tags, q_clamped);
     const arm::Vec3 ee = arm::end_effector_position(joints, q_clamped);
@@ -217,12 +244,9 @@ int run_trajectory(
     const std::vector<double>& q_goal_deg,
     double speed_deg_per_s,
     double fps) {
-    const std::map<std::string, double> dimensions =
-        arm::load_dimension_table(project_path("configs/robot_dimensions.csv"));
-    const std::vector<arm::JointSpec> joints =
-        arm::load_dh_table(project_path("configs/dh_table.csv"), dimensions);
-    const std::vector<arm::TagSpec> tags =
-        arm::load_tag_table(project_path("configs/apriltags.csv"), dimensions);
+    const LegacyGeometry geometry = load_legacy_geometry();
+    const std::vector<arm::JointSpec>& joints = geometry.joints;
+    const std::vector<arm::TagSpec>& tags = geometry.tags;
     if (q_start_deg.size() != joints.size() || q_goal_deg.size() != joints.size()) {
         throw std::runtime_error("Trajectory angle count must match the 6-joint DH table");
     }
