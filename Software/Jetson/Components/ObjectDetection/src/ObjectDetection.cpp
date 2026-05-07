@@ -1,11 +1,15 @@
 #include "JetsonQtApp/ObjectDetection/ObjectDetection.h"
 
 #include <cmath>
-#include <opencv2/aruco.hpp>
 #include <opencv2/calib3d.hpp>
 #include <opencv2/core.hpp>
 #include <opencv2/core/version.hpp>
 #include <opencv2/imgproc.hpp>
+#if defined(OBJECT_DETECTION_USE_OPENCV_OBJDETECT_ARUCO)
+#include <opencv2/objdetect/aruco_detector.hpp>
+#else
+#include <opencv2/aruco.hpp>
+#endif
 #include <opencv2/videoio.hpp>
 #include <sstream>
 #include <utility>
@@ -122,7 +126,7 @@ std::vector<cv::Point3d> tagObjectPoints(double tagSizeMeters) {
 void detectAprilTagCorners(const cv::Mat& grayFrame,
                            std::vector<std::vector<cv::Point2f>>* corners,
                            std::vector<int>* ids) {
-#if CV_VERSION_MAJOR > 4 || (CV_VERSION_MAJOR == 4 && CV_VERSION_MINOR >= 7)
+#if defined(OBJECT_DETECTION_USE_OPENCV_OBJDETECT_ARUCO)
   const cv::aruco::Dictionary dictionary =
       cv::aruco::getPredefinedDictionary(cv::aruco::DICT_APRILTAG_36h11);
   const cv::aruco::DetectorParameters detectorParameters;
