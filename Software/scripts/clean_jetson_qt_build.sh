@@ -2,6 +2,6 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="$(cd "${SCRIPT_DIR}/../JetsonQtApp" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
-cmake -E rm -rf "${PROJECT_DIR}/build"
+cmake -E rm -rf "${REPO_ROOT}/builds/Jetson"

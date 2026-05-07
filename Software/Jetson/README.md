@@ -1,26 +1,28 @@
-# JetsonQtApp
+# Jetson
 
 Cross-platform Qt/CMake workspace for robotic-arm UI applications. It is intended to build on macOS during development and on Jetson Linux for deployment.
 
 ## Layout
 
-- `libs/`: shared libraries. Each library exports a CMake target alias named `JetsonQtApp::<library_name>`.
-- `apps/`: application folders. Each app can have an app-specific library and a small executable entry point.
+- `Components/`: backend modules. Each component owns the sources and headers for one backend class or module and exports a CMake target alias named `JetsonQtApp::<library_name>`.
+- `Common/UICommon/`: shared QML components, UI utility C++ code, and shared image assets.
+- `Common/Theme/`: shared theme QML files.
+- `UserInterface/`: UI pages, page controller classes, and controller QTests.
+- `Apps/`: application entry-point folders. Each app folder contains the app `main.cpp`.
 - `cmake/JetsonQtAppHelpers.cmake`: helper functions for adding libraries and apps consistently.
+- `../../builds/Jetson/`: centralized CMake build tree and generated app/test executables.
 
 Libraries are ordinary CMake targets. Any app or library can use another library by linking its exported target, provided the dependency chain is satisfied.
 
 ## Current App
 
-`StateMachine_UI` is a Qt Widgets clone of `Software/sandbox/jetson-opencv-state-ui`. It preserves the same states, actions, keyboard behavior, and state images while replacing OpenCV window drawing with Qt.
+`StateMachine_UI` is a Qt Quick UI for the robotic-arm cooking state machine. It preserves the same states, actions, and state images while replacing OpenCV window drawing with Qt/QML.
 
 Controls:
 
 - `Arrow keys`: move the highlighted action
 - `Enter`: trigger the highlighted action and transition states
-- `i`: reset to `Init`
-- `j` / `k`: alternate action navigation keys
-- `q` or `Esc`: quit
+- `Esc`: quit
 
 ## Build
 
@@ -59,6 +61,17 @@ Configure and build:
 Software/scripts/build_jetson_qt_apps.sh
 ```
 
+The script configures CMake from `Software/Jetson` and writes all generated
+Jetson artifacts under `builds/Jetson`. App executables are placed under
+`builds/Jetson/apps/<app_name>/`, and QTest executables are placed under
+`builds/Jetson/tests/<test_name>/`.
+
+Run tests:
+
+```bash
+ctest --test-dir builds/Jetson
+```
+
 Run:
 
 ```bash
@@ -84,5 +97,5 @@ Software/scripts/clean_jetson_qt_build.sh
 On macOS, if CMake cannot find Homebrew Qt automatically, configure with:
 
 ```bash
-cmake -S Software/JetsonQtApp -B Software/JetsonQtApp/build -G Ninja -DCMAKE_PREFIX_PATH="$(brew --prefix qt)"
+cmake -S Software/Jetson -B builds/Jetson -G Ninja -DCMAKE_PREFIX_PATH="$(brew --prefix qt)"
 ```

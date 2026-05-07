@@ -1,5 +1,5 @@
 <RCC>
     <qresource prefix="/StateMachine_UI">
-        <file alias="main.qml">main.qml</file>
+        <file alias="main.qml">../qml/main.qml</file>
     </qresource>
 </RCC>
