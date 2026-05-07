@@ -175,6 +175,16 @@ std::vector<AprilTagPose> solveTagPoses(
                      translationVector[kSecondVectorElement],
                      translationVector[kThirdVectorElement]};
     pose.euler = eulerFromRotationMatrix(rotationMatrix);
+    pose.rotationMatrixRowMajor = {
+        rotationMatrix.at<double>(kFirstMatrixRow, kFirstMatrixCol),
+        rotationMatrix.at<double>(kFirstMatrixRow, kSecondMatrixCol),
+        rotationMatrix.at<double>(kFirstMatrixRow, kThirdMatrixCol),
+        rotationMatrix.at<double>(kSecondMatrixRow, kFirstMatrixCol),
+        rotationMatrix.at<double>(kSecondMatrixRow, kSecondMatrixCol),
+        rotationMatrix.at<double>(kSecondMatrixRow, kThirdMatrixCol),
+        rotationMatrix.at<double>(kThirdMatrixRow, kFirstMatrixCol),
+        rotationMatrix.at<double>(kThirdMatrixRow, kSecondMatrixCol),
+        rotationMatrix.at<double>(kThirdMatrixRow, kThirdMatrixCol)};
     pose.distanceMeters = cv::norm(cv::Mat(translationVector), cv::NORM_L2);
 
     poses.push_back(pose);

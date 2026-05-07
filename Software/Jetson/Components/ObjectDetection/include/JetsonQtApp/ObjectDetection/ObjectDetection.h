@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <memory>
 #include <string>
@@ -38,6 +39,8 @@ struct AprilTagPose {
   int id = kInvalidAprilTagId;
   PositionMeters position;
   EulerAnglesDegrees euler;
+  std::array<double, 9> rotationMatrixRowMajor = {1.0, 0.0, 0.0, 0.0, 1.0,
+                                                  0.0, 0.0, 0.0, 1.0};
   double distanceMeters = 0.0;
 };
 

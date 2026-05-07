@@ -41,6 +41,7 @@ target/
 
 # generated AprilTag image assets
 /Software/sandbox/AprilTag_PoseDetector/tools/_apriltag-imgs/
+/generated_pdfs/
 
 # swp files
 *.swp
