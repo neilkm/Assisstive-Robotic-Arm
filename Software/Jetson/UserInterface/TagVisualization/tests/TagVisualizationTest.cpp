@@ -3,6 +3,8 @@
 #include <QQmlContext>
 #include <QUrl>
 #include <cstdlib>
+#include <filesystem>
+#include <optional>
 #include <stdexcept>
 #include <string>
 
@@ -13,6 +15,8 @@ namespace {
 constexpr int kSuccessfulExit = 0;
 constexpr int kFailedExit = 1;
 constexpr int kDefaultHomeTagId = 5;
+constexpr const char* kDefaultCalibrationRelativePath =
+    "Software/Jetson/configs/logitech_c270_camera.yaml";
 
 struct TestOptions {
   jetsonqt::objectdetection::ObjectDetectionConfig config;
@@ -47,8 +51,32 @@ double parseDouble(const std::string& value, const std::string& argumentName) {
   }
 }
 
+std::optional<std::filesystem::path> findRepoFile(
+    const std::filesystem::path& relativePath) {
+  std::filesystem::path directory = std::filesystem::current_path();
+  while (true) {
+    const std::filesystem::path candidate = directory / relativePath;
+    if (std::filesystem::exists(candidate)) {
+      return candidate;
+    }
+
+    if (!directory.has_parent_path() || directory.parent_path() == directory) {
+      return std::nullopt;
+    }
+    directory = directory.parent_path();
+  }
+}
+
+std::string defaultCalibrationPath() {
+  const std::optional<std::filesystem::path> calibrationPath =
+      findRepoFile(kDefaultCalibrationRelativePath);
+  return calibrationPath.has_value() ? calibrationPath->string()
+                                     : std::string{};
+}
+
 TestOptions parseOptions(int argc, char** argv) {
   TestOptions options;
+  options.config.calibrationFilePath = defaultCalibrationPath();
 
   for (int i = 1; i < argc; ++i) {
     const std::string argument = argv[i];

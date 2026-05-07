@@ -14,6 +14,10 @@ using jetsonqt::objectdetection::EulerAnglesDegrees;
 using Matrix3 = std::array<double, 9>;
 using Vector3 = std::array<double, 3>;
 
+// OpenCV's tag-local Y/Z directions are converted so the home tag lies in the
+// XY plane and +Z points up out of the printed tag surface.
+constexpr Matrix3 kOpenCvTagToFlatHomeBasis = {1.0, 0.0, 0.0, 0.0, -1.0,
+                                               0.0, 0.0, 0.0, -1.0};
 constexpr int kPollingIntervalMs = 150;
 constexpr int kRgbChannelCount = 3;
 constexpr int kFirstFrameRevision = 1;
@@ -103,15 +107,20 @@ AprilTagPose poseRelativeToHome(const AprilTagPose& pose,
                                 const AprilTagPose& homePose) {
   const Matrix3 cameraToHomeRotation =
       transpose(homePose.rotationMatrixRowMajor);
-  const Matrix3 homeToTagRotation =
+  const Matrix3 openCvHomeToOpenCvTagRotation =
       multiply(cameraToHomeRotation, pose.rotationMatrixRowMajor);
+  const Matrix3 homeToTagRotation = multiply(
+      multiply(kOpenCvTagToFlatHomeBasis, openCvHomeToOpenCvTagRotation),
+      kOpenCvTagToFlatHomeBasis);
   const Vector3 posePosition = positionVector(pose);
   const Vector3 homePosition = positionVector(homePose);
   const Vector3 cameraFrameDelta = {posePosition[0] - homePosition[0],
                                     posePosition[1] - homePosition[1],
                                     posePosition[2] - homePosition[2]};
-  const Vector3 homeFramePosition =
+  const Vector3 openCvHomeFramePosition =
       multiply(cameraToHomeRotation, cameraFrameDelta);
+  const Vector3 homeFramePosition =
+      multiply(kOpenCvTagToFlatHomeBasis, openCvHomeFramePosition);
 
   AprilTagPose relativePose;
   relativePose.id = pose.id;

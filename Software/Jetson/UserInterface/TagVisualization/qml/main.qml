@@ -145,7 +145,7 @@ Window {
                     anchors.left: parent.left
                     anchors.top: parent.top
                     anchors.margins: 16
-                    text: "Home Tag " + tagVisualization.homeTagId + " Coordinates"
+                    text: "Home Tag " + tagVisualization.homeTagId + " XY Plane"
                     color: primaryText
                     font.pixelSize: 18
                     font.bold: true
@@ -161,11 +161,11 @@ Window {
 
                     function project(x, y, z) {
                         var scale = Math.min(width, height) * 0.30
-                        var originX = width * 0.42
-                        var originY = height * 0.62
+                        var originX = width * 0.50
+                        var originY = height * 0.72
                         return {
-                            x: originX + x * scale + z * scale * 0.42,
-                            y: originY + y * scale - z * scale * 0.22
+                            x: originX + x * scale + y * scale * 0.42,
+                            y: originY - z * scale - y * scale * 0.22
                         }
                     }
 
@@ -212,19 +212,19 @@ Window {
                         ctx.fillRect(0, 0, width, height)
 
                         for (var i = -4; i <= 4; ++i) {
-                            drawLine(ctx, project(i * 0.25, 0, 0), project(i * 0.25, 0, 1.2), "#263545", 1)
-                            drawLine(ctx, project(-1.0, 0, i * 0.15 + 0.6), project(1.0, 0, i * 0.15 + 0.6), "#263545", 1)
+                            drawLine(ctx, project(i * 0.25, -1.0, 0), project(i * 0.25, 1.0, 0), "#263545", 1)
+                            drawLine(ctx, project(-1.0, i * 0.25, 0), project(1.0, i * 0.25, 0), "#263545", 1)
                         }
 
                         drawLine(ctx, project(0, 0, 0), project(0.7, 0, 0), "#e85b5b", 3)
                         drawLine(ctx, project(0, 0, 0), project(0, 0.7, 0), "#65c975", 3)
-                        drawLine(ctx, project(0, 0, 0), project(0, 0, 0.9), "#5c8dff", 3)
+                        drawLine(ctx, project(0, 0, 0), project(0, 0, 0.7), "#5c8dff", 3)
 
                         ctx.fillStyle = mutedText
                         ctx.font = "13px sans-serif"
                         var lx = project(0.72, 0, 0)
                         var ly = project(0, 0.72, 0)
-                        var lz = project(0, 0, 0.92)
+                        var lz = project(0, 0, 0.72)
                         ctx.fillText("+X", lx.x + 4, lx.y)
                         ctx.fillText("+Y", ly.x + 4, ly.y)
                         ctx.fillText("+Z", lz.x + 4, lz.y)

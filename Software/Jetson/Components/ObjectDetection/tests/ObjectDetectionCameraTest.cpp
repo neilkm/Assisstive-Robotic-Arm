@@ -2,6 +2,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdlib>
+#include <filesystem>
 #include <iomanip>
 #include <iostream>
 #include <optional>
@@ -20,6 +21,11 @@ using jetsonqt::objectdetection::ObjectDetectionConfig;
 using Matrix3 = std::array<double, 9>;
 using Vector3 = std::array<double, 3>;
 
+// OpenCV's tag-local Y/Z directions are converted so the home tag lies in the
+// XY plane and +Z points up out of the printed tag surface.
+constexpr Matrix3 kOpenCvTagToFlatHomeBasis = {1.0, 0.0, 0.0, 0.0, -1.0,
+                                               0.0, 0.0, 0.0, -1.0};
+
 constexpr int kRunUntilInterrupted = 0;
 constexpr int kFirstPollingCycle = 1;
 constexpr int kMinimumFiniteCycleCount = 0;
@@ -29,6 +35,8 @@ constexpr int kOutputPrecision = 4;
 constexpr int kDefaultHomeTagId = 5;
 constexpr double kSingularEulerThreshold = 1e-6;
 constexpr double kRadiansToDegrees = 180.0 / 3.14159265358979323846;
+constexpr const char* kDefaultCalibrationRelativePath =
+    "Software/Jetson/configs/logitech_c270_camera.yaml";
 constexpr auto kPollingInterval = std::chrono::seconds(1);
 
 struct TestOptions {
@@ -65,6 +73,29 @@ double parseDouble(const std::string& value, const std::string& argumentName) {
   }
 }
 
+std::optional<std::filesystem::path> findRepoFile(
+    const std::filesystem::path& relativePath) {
+  std::filesystem::path directory = std::filesystem::current_path();
+  while (true) {
+    const std::filesystem::path candidate = directory / relativePath;
+    if (std::filesystem::exists(candidate)) {
+      return candidate;
+    }
+
+    if (!directory.has_parent_path() || directory.parent_path() == directory) {
+      return std::nullopt;
+    }
+    directory = directory.parent_path();
+  }
+}
+
+std::string defaultCalibrationPath() {
+  const std::optional<std::filesystem::path> calibrationPath =
+      findRepoFile(kDefaultCalibrationRelativePath);
+  return calibrationPath.has_value() ? calibrationPath->string()
+                                     : std::string{};
+}
+
 void printUsage(const char* executableName) {
   std::cout << "Usage: " << executableName << " [options]\n"
             << "\n"
@@ -83,6 +114,7 @@ void printUsage(const char* executableName) {
 
 TestOptions parseOptions(int argc, char** argv) {
   TestOptions options;
+  options.config.calibrationFilePath = defaultCalibrationPath();
 
   for (int i = 1; i < argc; ++i) {
     const std::string argument = argv[i];
@@ -193,15 +225,20 @@ jetsonqt::objectdetection::AprilTagPose poseRelativeToHome(
     const jetsonqt::objectdetection::AprilTagPose& homePose) {
   const Matrix3 cameraToHomeRotation =
       transpose(homePose.rotationMatrixRowMajor);
-  const Matrix3 homeToTagRotation =
+  const Matrix3 openCvHomeToOpenCvTagRotation =
       multiply(cameraToHomeRotation, pose.rotationMatrixRowMajor);
+  const Matrix3 homeToTagRotation = multiply(
+      multiply(kOpenCvTagToFlatHomeBasis, openCvHomeToOpenCvTagRotation),
+      kOpenCvTagToFlatHomeBasis);
   const Vector3 posePosition = positionVector(pose);
   const Vector3 homePosition = positionVector(homePose);
   const Vector3 cameraFrameDelta = {posePosition[0] - homePosition[0],
                                     posePosition[1] - homePosition[1],
                                     posePosition[2] - homePosition[2]};
-  const Vector3 homeFramePosition =
+  const Vector3 openCvHomeFramePosition =
       multiply(cameraToHomeRotation, cameraFrameDelta);
+  const Vector3 homeFramePosition =
+      multiply(kOpenCvTagToFlatHomeBasis, openCvHomeFramePosition);
 
   jetsonqt::objectdetection::AprilTagPose relativePose;
   relativePose.id = pose.id;
