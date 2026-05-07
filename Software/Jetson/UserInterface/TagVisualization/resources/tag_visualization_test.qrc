@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/TagVisualization_Test">
+        <file alias="main.qml">../qml/main.qml</file>
+    </qresource>
+</RCC>

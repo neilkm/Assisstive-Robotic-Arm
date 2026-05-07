@@ -36,6 +36,7 @@ constexpr int kFirstDistortionRow = 0;
 constexpr int kFirstVectorElement = 0;
 constexpr int kSecondVectorElement = 1;
 constexpr int kThirdVectorElement = 2;
+constexpr int kRgbChannelCount = 3;
 
 void setError(std::string* errorMessage, const std::string& message) {
   if (errorMessage != nullptr) {
@@ -140,6 +141,46 @@ void detectAprilTagCorners(const cv::Mat& grayFrame,
   cv::aruco::detectMarkers(grayFrame, dictionary, *corners, *ids,
                            detectorParameters);
 #endif
+}
+
+std::vector<AprilTagPose> solveTagPoses(
+    const std::vector<std::vector<cv::Point2f>>& corners,
+    const std::vector<int>& ids, double aprilTagSizeMeters,
+    const cv::Mat& cameraMatrix, const cv::Mat& distortionCoefficients) {
+  std::vector<AprilTagPose> poses;
+  poses.reserve(ids.size());
+
+  // The object points model the four tag corners around the tag center.
+  // solvePnP returns each tag center's rotation and translation relative to the
+  // camera.
+  const std::vector<cv::Point3d> objectPoints =
+      tagObjectPoints(aprilTagSizeMeters);
+  for (std::size_t i = 0; i < ids.size(); ++i) {
+    cv::Vec3d rotationVector;
+    cv::Vec3d translationVector;
+
+    const bool solved = cv::solvePnP(
+        objectPoints, corners[i], cameraMatrix, distortionCoefficients,
+        rotationVector, translationVector, false, cv::SOLVEPNP_ITERATIVE);
+    if (!solved) {
+      continue;
+    }
+
+    cv::Mat rotationMatrix;
+    cv::Rodrigues(rotationVector, rotationMatrix);
+
+    AprilTagPose pose;
+    pose.id = ids[i];
+    pose.position = {translationVector[kFirstVectorElement],
+                     translationVector[kSecondVectorElement],
+                     translationVector[kThirdVectorElement]};
+    pose.euler = eulerFromRotationMatrix(rotationMatrix);
+    pose.distanceMeters = cv::norm(cv::Mat(translationVector), cv::NORM_L2);
+
+    poses.push_back(pose);
+  }
+
+  return poses;
 }
 
 }  // namespace
@@ -254,19 +295,26 @@ void ObjectDetection::releaseCamera() { impl_->capture.release(); }
 
 std::vector<AprilTagPose> ObjectDetection::detectAprilTags(
     std::string* errorMessage) {
+  return detectAprilTagsWithFrame(errorMessage).aprilTags;
+}
+
+AprilTagDetectionFrame ObjectDetection::detectAprilTagsWithFrame(
+    std::string* errorMessage) {
+  AprilTagDetectionFrame detectionFrame;
+
   if (!impl_->capture.isOpened()) {
     setError(errorMessage, "Camera is not initialized.");
-    return {};
+    return detectionFrame;
   }
 
   cv::Mat frame;
   if (!impl_->capture.read(frame) || frame.empty()) {
     setError(errorMessage, "Could not read a frame from the camera.");
-    return {};
+    return detectionFrame;
   }
 
   if (!impl_->initializeIntrinsicsForFrame(frame, errorMessage)) {
-    return {};
+    return detectionFrame;
   }
 
   cv::Mat grayFrame;
@@ -276,44 +324,27 @@ std::vector<AprilTagPose> ObjectDetection::detectAprilTags(
   std::vector<int> ids;
   detectAprilTagCorners(grayFrame, &corners, &ids);
 
-  std::vector<AprilTagPose> poses;
-  poses.reserve(ids.size());
-
-  // The object points model the four tag corners around the tag center.
-  // solvePnP returns each tag center's rotation and translation relative to the
-  // camera.
-  const std::vector<cv::Point3d> objectPoints =
-      tagObjectPoints(impl_->config.aprilTagSizeMeters);
-  for (std::size_t i = 0; i < ids.size(); ++i) {
-    cv::Vec3d rotationVector;
-    cv::Vec3d translationVector;
-
-    const bool solved =
-        cv::solvePnP(objectPoints, corners[i], impl_->cameraMatrix,
-                     impl_->distortionCoefficients, rotationVector,
-                     translationVector, false, cv::SOLVEPNP_ITERATIVE);
-    if (!solved) {
-      continue;
-    }
-
-    cv::Mat rotationMatrix;
-    cv::Rodrigues(rotationVector, rotationMatrix);
-
-    AprilTagPose pose;
-    pose.id = ids[i];
-    pose.position = {translationVector[kFirstVectorElement],
-                     translationVector[kSecondVectorElement],
-                     translationVector[kThirdVectorElement]};
-    pose.euler = eulerFromRotationMatrix(rotationMatrix);
-    pose.distanceMeters = cv::norm(cv::Mat(translationVector), cv::NORM_L2);
-
-    poses.push_back(pose);
+  cv::Mat rgbFrame;
+  cv::cvtColor(frame, rgbFrame, cv::COLOR_BGR2RGB);
+  if (!rgbFrame.isContinuous()) {
+    rgbFrame = rgbFrame.clone();
   }
+
+  detectionFrame.width = rgbFrame.cols;
+  detectionFrame.height = rgbFrame.rows;
+  detectionFrame.rgbPixels.assign(
+      rgbFrame.datastart,
+      rgbFrame.datastart +
+          (static_cast<std::size_t>(rgbFrame.cols) *
+           static_cast<std::size_t>(rgbFrame.rows) * kRgbChannelCount));
+  detectionFrame.aprilTags =
+      solveTagPoses(corners, ids, impl_->config.aprilTagSizeMeters,
+                    impl_->cameraMatrix, impl_->distortionCoefficients);
 
   if (errorMessage != nullptr) {
     errorMessage->clear();
   }
-  return poses;
+  return detectionFrame;
 }
 
 const ObjectDetectionConfig& ObjectDetection::config() const {

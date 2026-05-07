@@ -25,6 +25,7 @@ add_subdirectory(Components/StateMachine)
 add_subdirectory(Components/ObjectDetection)
 add_subdirectory(Common/UICommon)
 add_subdirectory(UserInterface/StateMachine)
+add_subdirectory(UserInterface/TagVisualization)
 
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Apps/StateMachine_UI")
     add_subdirectory(Apps/StateMachine_UI)

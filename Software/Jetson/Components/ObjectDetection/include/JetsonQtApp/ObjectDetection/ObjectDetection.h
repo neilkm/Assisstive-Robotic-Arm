@@ -41,6 +41,13 @@ struct AprilTagPose {
   double distanceMeters = 0.0;
 };
 
+struct AprilTagDetectionFrame {
+  int width = 0;
+  int height = 0;
+  std::vector<unsigned char> rgbPixels;
+  std::vector<AprilTagPose> aprilTags;
+};
+
 class ObjectDetection {
  public:
   explicit ObjectDetection(ObjectDetectionConfig config = {});
@@ -58,6 +65,8 @@ class ObjectDetection {
   // Captures one frame, detects every visible AprilTag 36h11 marker, and solves
   // each tag pose in the OpenCV camera frame: +x right, +y down, +z forward.
   [[nodiscard]] std::vector<AprilTagPose> detectAprilTags(
+      std::string* errorMessage = nullptr);
+  [[nodiscard]] AprilTagDetectionFrame detectAprilTagsWithFrame(
       std::string* errorMessage = nullptr);
 
   [[nodiscard]] const ObjectDetectionConfig& config() const;
