@@ -2,15 +2,8 @@
 
 ECE129 Capstone project repository for the assistive robotic arm software, electrical, and mechanical assets.
 
-## Branch Management
-
-- `master` is the protected integration branch.
-- Create feature branches for all work (example: `feature/<topic>` or `fix/<topic>`).
-- Open a pull request into `master`; do not push directly to `master`.
-- CI workflow `.github/workflows/ci-master.yml` runs on every push/PR targeting `master` and must pass before merge.
-
 ## Functional Directory Structure
 
-- `Software/`: embedded and host-side software. See `Software/README.md` for structure, build, and test details.
+- `Software/`: embedded and host-side software. 
 - `Mechanical/`: mechanical design/docs.
 - `Electrical/`: electrical design/docs.

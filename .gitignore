@@ -1,4 +1,5 @@
 # build outputs
+builds/
 build/
 cmake-build-*/
 CMakeFiles/
@@ -20,6 +21,11 @@ install_manifest.txt
 *.exe
 *.lock
 /Software/build_output/
+
+# generated Jetson power draw test artifacts kept for old local copies
+/Software/tools/Jetson_PowerDrawTest/cuda_burn
+/Software/tools/Jetson_PowerDrawTest/cuda_mem_burn
+/Software/tools/Jetson_PowerDrawTest/tegrastats_burn.log
 
 # embedded toolchains
 .pio
