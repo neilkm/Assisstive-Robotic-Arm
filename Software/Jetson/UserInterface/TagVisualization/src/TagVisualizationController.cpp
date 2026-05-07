@@ -19,7 +19,7 @@ using Vector3 = std::array<double, 3>;
 // XY plane and +Z points up out of the printed tag surface.
 constexpr Matrix3 kOpenCvTagToFlatHomeBasis = {1.0, 0.0, 0.0, 0.0, -1.0,
                                                0.0, 0.0, 0.0, -1.0};
-constexpr int kPollingIntervalMs = 200;
+constexpr int kPollingIntervalMs = 50;
 constexpr std::size_t kPoseAverageFrameCount = 50;
 constexpr int kRgbChannelCount = 3;
 constexpr int kFirstFrameRevision = 1;

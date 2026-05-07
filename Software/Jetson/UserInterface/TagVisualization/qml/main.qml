@@ -159,16 +159,26 @@ Window {
                     anchors.top: gridTitle.bottom
                     anchors.bottom: parent.bottom
                     anchors.margins: 16
-                    property real panX: 0
-                    property real panY: 0
+                    property real viewYawDeg: -24
+                    property real viewPitchDeg: 12
 
                     function project(x, y, z) {
                         var scale = Math.min(width, height) * 0.30
-                        var originX = width * 0.50 + panX
-                        var originY = height * 0.72 + panY
+                        var originX = width * 0.50
+                        var originY = height * 0.70
+                        var yaw = viewYawDeg * Math.PI / 180.0
+                        var pitch = viewPitchDeg * Math.PI / 180.0
+                        var cosYaw = Math.cos(yaw)
+                        var sinYaw = Math.sin(yaw)
+                        var cosPitch = Math.cos(pitch)
+                        var sinPitch = Math.sin(pitch)
+                        var rx = x * cosYaw - y * sinYaw
+                        var ry = x * sinYaw + y * cosYaw
+                        var rz = z * cosPitch - ry * sinPitch
+                        var depth = z * sinPitch + ry * cosPitch
                         return {
-                            x: originX + x * scale + y * scale * 0.42,
-                            y: originY - z * scale - y * scale * 0.22
+                            x: originX + rx * scale,
+                            y: originY - rz * scale - depth * scale * 0.20
                         }
                     }
 
@@ -279,6 +289,7 @@ Window {
                     cursorShape: pressed ? Qt.ClosedHandCursor : Qt.OpenHandCursor
                     property real lastX: 0
                     property real lastY: 0
+                    readonly property real degreesPerPixel: 0.35
 
                     onPressed: function(mouse) {
                         lastX = mouse.x
@@ -289,16 +300,17 @@ Window {
                         if (!pressed) {
                             return
                         }
-                        gridCanvas.panX += mouse.x - lastX
-                        gridCanvas.panY += mouse.y - lastY
+                        gridCanvas.viewYawDeg += (mouse.x - lastX) * degreesPerPixel
+                        gridCanvas.viewPitchDeg += (mouse.y - lastY) * degreesPerPixel
+                        gridCanvas.viewPitchDeg = Math.max(-80, Math.min(80, gridCanvas.viewPitchDeg))
                         lastX = mouse.x
                         lastY = mouse.y
                         gridCanvas.requestPaint()
                     }
 
                     onDoubleClicked: {
-                        gridCanvas.panX = 0
-                        gridCanvas.panY = 0
+                        gridCanvas.viewYawDeg = -24
+                        gridCanvas.viewPitchDeg = 12
                         gridCanvas.requestPaint()
                     }
                 }
@@ -468,7 +480,7 @@ Window {
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.leftMargin: 24
-                text: tagVisualization.calibrated ? "OpenCV camera frame | coordinates relative to AprilTag ID " + tagVisualization.homeTagId + " | 50-frame average at 0.2s intervals | Esc quits" : "Show the printed checkerboard until calibration completes | Esc quits"
+                text: tagVisualization.calibrated ? "OpenCV camera frame | coordinates relative to AprilTag ID " + tagVisualization.homeTagId + " | drag grid to rotate | 50-frame average at 50ms intervals | Esc quits" : "Show the printed checkerboard until calibration completes | Esc quits"
                 color: mutedText
                 font.pixelSize: 13
             }
