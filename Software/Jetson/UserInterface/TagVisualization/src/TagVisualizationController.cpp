@@ -5,6 +5,7 @@
 #include <array>
 #include <cmath>
 #include <optional>
+#include <set>
 
 namespace tagvisualizationui {
 namespace {
@@ -18,12 +19,10 @@ using Vector3 = std::array<double, 3>;
 // XY plane and +Z points up out of the printed tag surface.
 constexpr Matrix3 kOpenCvTagToFlatHomeBasis = {1.0, 0.0, 0.0, 0.0, -1.0,
                                                0.0, 0.0, 0.0, -1.0};
-constexpr int kPollingIntervalMs = 150;
+constexpr int kPollingIntervalMs = 200;
+constexpr std::size_t kPoseAverageFrameCount = 50;
 constexpr int kRgbChannelCount = 3;
 constexpr int kFirstFrameRevision = 1;
-constexpr double kPositionDeadbandMeters = 0.004;
-constexpr double kEulerDeadbandDegrees = 1.0;
-constexpr double kSmoothingAlpha = 0.25;
 constexpr double kSingularEulerThreshold = 1e-6;
 constexpr double kRadiansToDegrees = 180.0 / 3.14159265358979323846;
 
@@ -145,16 +144,6 @@ std::vector<AprilTagPose> posesRelativeToHome(
   return relativePoses;
 }
 
-double delta(double current, double previous) { return current - previous; }
-
-double smoothScalar(double current, double previous, double deadband) {
-  const double difference = delta(current, previous);
-  if (std::abs(difference) < deadband) {
-    return previous;
-  }
-  return previous + (difference * kSmoothingAlpha);
-}
-
 std::optional<AprilTagPose> findPoseById(const QVariantList&, int) = delete;
 
 }  // namespace
@@ -230,7 +219,7 @@ void TagVisualizationController::stop() {
   cameraReady_ = false;
   homeFrameAvailable_ = false;
   calibrated_ = false;
-  smoothedPoses_.clear();
+  poseHistoryById_.clear();
 }
 
 void TagVisualizationController::pollCamera() {
@@ -254,15 +243,14 @@ void TagVisualizationController::pollCamera() {
   if (homePose.has_value()) {
     const std::vector<AprilTagPose> relativePoses =
         posesRelativeToHome(frame.aprilTags, *homePose);
-    smoothedPoses_ = smoothPoses(relativePoses);
-    tagPoses_ = toTagPoseList(smoothedPoses_);
+    tagPoses_ = toTagPoseList(averagePoses(relativePoses));
     homeFrameAvailable_ = true;
     statusText_ = QStringLiteral("%1 tag(s) visible. Home tag %2 frame active.")
                       .arg(frame.aprilTags.size())
                       .arg(homeTagId_);
   } else {
     tagPoses_ = {};
-    smoothedPoses_.clear();
+    poseHistoryById_.clear();
     homeFrameAvailable_ = false;
     statusText_ = QStringLiteral("%1 tag(s) visible. Home tag %2 not visible.")
                       .arg(frame.aprilTags.size())
@@ -335,38 +323,57 @@ QVariantList TagVisualizationController::toTagPoseList(
   return tags;
 }
 
-std::vector<AprilTagPose> TagVisualizationController::smoothPoses(
+std::vector<AprilTagPose> TagVisualizationController::averagePoses(
     const std::vector<AprilTagPose>& poses) {
-  std::vector<AprilTagPose> smoothed;
-  smoothed.reserve(poses.size());
-
+  std::set<int> visibleIds;
   for (const AprilTagPose& pose : poses) {
-    const std::optional<AprilTagPose> previousPose =
-        findPoseById(smoothedPoses_, pose.id);
-    if (!previousPose.has_value()) {
-      smoothed.push_back(pose);
-      continue;
-    }
-
-    AprilTagPose filtered = pose;
-    filtered.position.x = smoothScalar(
-        pose.position.x, previousPose->position.x, kPositionDeadbandMeters);
-    filtered.position.y = smoothScalar(
-        pose.position.y, previousPose->position.y, kPositionDeadbandMeters);
-    filtered.position.z = smoothScalar(
-        pose.position.z, previousPose->position.z, kPositionDeadbandMeters);
-    filtered.euler.pitchX = smoothScalar(
-        pose.euler.pitchX, previousPose->euler.pitchX, kEulerDeadbandDegrees);
-    filtered.euler.yawY = smoothScalar(
-        pose.euler.yawY, previousPose->euler.yawY, kEulerDeadbandDegrees);
-    filtered.euler.rollZ = smoothScalar(
-        pose.euler.rollZ, previousPose->euler.rollZ, kEulerDeadbandDegrees);
-    filtered.distanceMeters =
-        norm({filtered.position.x, filtered.position.y, filtered.position.z});
-    smoothed.push_back(filtered);
+    visibleIds.insert(pose.id);
   }
 
-  return smoothed;
+  for (auto history = poseHistoryById_.begin();
+       history != poseHistoryById_.end();) {
+    if (visibleIds.count(history->first) == 0) {
+      history = poseHistoryById_.erase(history);
+      continue;
+    }
+    ++history;
+  }
+
+  std::vector<AprilTagPose> averaged;
+  averaged.reserve(poses.size());
+
+  for (const AprilTagPose& pose : poses) {
+    std::deque<AprilTagPose>& history = poseHistoryById_[pose.id];
+    history.push_back(pose);
+    while (history.size() > kPoseAverageFrameCount) {
+      history.pop_front();
+    }
+
+    AprilTagPose average = pose;
+    average.position = {};
+    average.euler = {};
+    for (const AprilTagPose& sample : history) {
+      average.position.x += sample.position.x;
+      average.position.y += sample.position.y;
+      average.position.z += sample.position.z;
+      average.euler.pitchX += sample.euler.pitchX;
+      average.euler.yawY += sample.euler.yawY;
+      average.euler.rollZ += sample.euler.rollZ;
+    }
+
+    const double sampleCount = static_cast<double>(history.size());
+    average.position.x /= sampleCount;
+    average.position.y /= sampleCount;
+    average.position.z /= sampleCount;
+    average.euler.pitchX /= sampleCount;
+    average.euler.yawY /= sampleCount;
+    average.euler.rollZ /= sampleCount;
+    average.distanceMeters =
+        norm({average.position.x, average.position.y, average.position.z});
+    averaged.push_back(average);
+  }
+
+  return averaged;
 }
 
 TagVisualizationImageProvider::TagVisualizationImageProvider(

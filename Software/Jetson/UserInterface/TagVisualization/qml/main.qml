@@ -159,11 +159,13 @@ Window {
                     anchors.top: gridTitle.bottom
                     anchors.bottom: parent.bottom
                     anchors.margins: 16
+                    property real panX: 0
+                    property real panY: 0
 
                     function project(x, y, z) {
                         var scale = Math.min(width, height) * 0.30
-                        var originX = width * 0.50
-                        var originY = height * 0.72
+                        var originX = width * 0.50 + panX
+                        var originY = height * 0.72 + panY
                         return {
                             x: originX + x * scale + y * scale * 0.42,
                             y: originY - z * scale - y * scale * 0.22
@@ -266,6 +268,39 @@ Window {
                     Component.onCompleted: requestPaint()
                     onWidthChanged: requestPaint()
                     onHeightChanged: requestPaint()
+                }
+
+                MouseArea {
+                    id: gridMouseArea
+                    anchors.left: gridCanvas.left
+                    anchors.right: gridCanvas.right
+                    anchors.top: gridCanvas.top
+                    anchors.bottom: gridCanvas.bottom
+                    cursorShape: pressed ? Qt.ClosedHandCursor : Qt.OpenHandCursor
+                    property real lastX: 0
+                    property real lastY: 0
+
+                    onPressed: function(mouse) {
+                        lastX = mouse.x
+                        lastY = mouse.y
+                    }
+
+                    onPositionChanged: function(mouse) {
+                        if (!pressed) {
+                            return
+                        }
+                        gridCanvas.panX += mouse.x - lastX
+                        gridCanvas.panY += mouse.y - lastY
+                        lastX = mouse.x
+                        lastY = mouse.y
+                        gridCanvas.requestPaint()
+                    }
+
+                    onDoubleClicked: {
+                        gridCanvas.panX = 0
+                        gridCanvas.panY = 0
+                        gridCanvas.requestPaint()
+                    }
                 }
             }
 
@@ -433,7 +468,7 @@ Window {
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.leftMargin: 24
-                text: tagVisualization.calibrated ? "OpenCV camera frame | coordinates relative to AprilTag ID " + tagVisualization.homeTagId + " | smoothing/deadband active | Esc quits" : "Show the printed checkerboard until calibration completes | Esc quits"
+                text: tagVisualization.calibrated ? "OpenCV camera frame | coordinates relative to AprilTag ID " + tagVisualization.homeTagId + " | 50-frame average at 0.2s intervals | Esc quits" : "Show the printed checkerboard until calibration completes | Esc quits"
                 color: mutedText
                 font.pixelSize: 13
             }

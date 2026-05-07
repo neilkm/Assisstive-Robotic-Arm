@@ -6,6 +6,8 @@
 #include <QString>
 #include <QTimer>
 #include <QVariantList>
+#include <deque>
+#include <map>
 
 #include "JetsonQtApp/ObjectDetection/ObjectDetection.h"
 
@@ -59,7 +61,7 @@ class TagVisualizationController final : public QObject {
   [[nodiscard]] QVariantList toTagPoseList(
       const std::vector<jetsonqt::objectdetection::AprilTagPose>& poses) const;
   [[nodiscard]] std::vector<jetsonqt::objectdetection::AprilTagPose>
-  smoothPoses(
+  averagePoses(
       const std::vector<jetsonqt::objectdetection::AprilTagPose>& poses);
 
   jetsonqt::objectdetection::ObjectDetection detector_;
@@ -69,7 +71,8 @@ class TagVisualizationController final : public QObject {
   QString cameraImageSource_;
   QString statusText_;
   QString calibrationStatusText_;
-  std::vector<jetsonqt::objectdetection::AprilTagPose> smoothedPoses_;
+  std::map<int, std::deque<jetsonqt::objectdetection::AprilTagPose>>
+      poseHistoryById_;
   double calibrationReprojectionError_ = 0.0;
   int frameRevision_ = 0;
   int homeTagId_ = 5;
