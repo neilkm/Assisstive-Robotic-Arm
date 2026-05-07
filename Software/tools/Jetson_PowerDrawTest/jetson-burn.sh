@@ -1,11 +1,37 @@
 #!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TOOL_NAME="$(basename "$SCRIPT_DIR")"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+BUILD_DIR="$REPO_ROOT/builds/$TOOL_NAME"
+
+CUDA_BURN_SRC="$SCRIPT_DIR/cuda_burn.cu"
+CUDA_MEM_BURN_SRC="$SCRIPT_DIR/cuda_mem_burn.cu"
+CUDA_BURN_BIN="$BUILD_DIR/cuda_burn"
+CUDA_MEM_BURN_BIN="$BUILD_DIR/cuda_mem_burn"
 
 #Test Duration
 # default 30s
 DURATION="${1:-30}" 
 
 #Logfile location
-LOGFILE=./tegrastats_burn.log
+LOGFILE="$BUILD_DIR/tegrastats_burn.log"
+
+mkdir -p "$BUILD_DIR"
+
+build_cuda_helper() {
+  local source_file="$1"
+  local output_file="$2"
+
+  if [[ ! -x "$output_file" || "$source_file" -nt "$output_file" ]]; then
+    echo "[jetson-burn] building $(basename "$output_file")..."
+    nvcc "$source_file" -o "$output_file"
+  fi
+}
+
+build_cuda_helper "$CUDA_BURN_SRC" "$CUDA_BURN_BIN"
+build_cuda_helper "$CUDA_MEM_BURN_SRC" "$CUDA_MEM_BURN_BIN"
 
 echo "Jetson Nano Power Draw Test"
 echo "maxing cpu, gpu, memory, swap usage for ${DURATION}s"
@@ -37,14 +63,14 @@ TEGRAPID=$!
 echo "[jetson-burn] starting workloads..."
 
 # GPU compute burn
-timeout "${DURATION}s" ./cuda_burn &
-timeout "${DURATION}s" ./cuda_burn &
-timeout "${DURATION}s" ./cuda_burn &
+timeout "${DURATION}s" "$CUDA_BURN_BIN" &
+timeout "${DURATION}s" "$CUDA_BURN_BIN" &
+timeout "${DURATION}s" "$CUDA_BURN_BIN" &
 
 # GPU memory burn
-timeout "${DURATION}s" ./cuda_mem_burn &
-timeout "${DURATION}s" ./cuda_mem_burn &
-timeout "${DURATION}s" ./cuda_mem_burn &
+timeout "${DURATION}s" "$CUDA_MEM_BURN_BIN" &
+timeout "${DURATION}s" "$CUDA_MEM_BURN_BIN" &
+timeout "${DURATION}s" "$CUDA_MEM_BURN_BIN" &
 
 # CPU + RAM + swap pressure
 stress-ng \
@@ -111,4 +137,3 @@ END {
 ' "$LOGFILE"
 
 echo "==================================="
-
