@@ -37,6 +37,12 @@ constexpr int kFirstVectorElement = 0;
 constexpr int kSecondVectorElement = 1;
 constexpr int kThirdVectorElement = 2;
 constexpr int kRgbChannelCount = 3;
+constexpr int kCheckerboardCornerSubPixWindow = 11;
+constexpr int kCheckerboardCornerSubPixDeadZone = -1;
+constexpr int kCheckerboardCornerSubPixMaxIterations = 30;
+constexpr double kCheckerboardCornerSubPixEpsilon = 0.001;
+constexpr double kManualExposureValue = 0.25;
+constexpr double kManualFocusValue = 0.0;
 
 void setError(std::string* errorMessage, const std::string& message) {
   if (errorMessage != nullptr) {
@@ -72,6 +78,52 @@ bool readCalibrationFile(const std::string& path, cv::Mat* cameraMatrix,
   cameraMatrix->convertTo(*cameraMatrix, CV_64F);
   distortionCoefficients->convertTo(*distortionCoefficients, CV_64F);
   return true;
+}
+
+std::vector<unsigned char> rgbPixelsFromBgrFrame(const cv::Mat& frame) {
+  cv::Mat rgbFrame;
+  cv::cvtColor(frame, rgbFrame, cv::COLOR_BGR2RGB);
+  if (!rgbFrame.isContinuous()) {
+    rgbFrame = rgbFrame.clone();
+  }
+
+  return std::vector<unsigned char>(
+      rgbFrame.datastart,
+      rgbFrame.datastart +
+          (static_cast<std::size_t>(rgbFrame.cols) *
+           static_cast<std::size_t>(rgbFrame.rows) * kRgbChannelCount));
+}
+
+std::vector<cv::Point3f> checkerboardObjectPoints(
+    const CheckerboardCalibrationConfig& calibrationConfig) {
+  std::vector<cv::Point3f> objectPoints;
+  objectPoints.reserve(static_cast<std::size_t>(
+      calibrationConfig.innerCornersX * calibrationConfig.innerCornersY));
+  for (int y = 0; y < calibrationConfig.innerCornersY; ++y) {
+    for (int x = 0; x < calibrationConfig.innerCornersX; ++x) {
+      objectPoints.emplace_back(
+          static_cast<float>(x * calibrationConfig.squareSizeMeters),
+          static_cast<float>(y * calibrationConfig.squareSizeMeters), 0.0F);
+    }
+  }
+  return objectPoints;
+}
+
+double meanReprojectionError(const std::vector<cv::Point3f>& objectPoints,
+                             const std::vector<cv::Point2f>& imagePoints,
+                             const cv::Mat& cameraMatrix,
+                             const cv::Mat& distortionCoefficients,
+                             const cv::Mat& rotationVector,
+                             const cv::Mat& translationVector) {
+  std::vector<cv::Point2f> projectedPoints;
+  cv::projectPoints(objectPoints, rotationVector, translationVector,
+                    cameraMatrix, distortionCoefficients, projectedPoints);
+
+  double totalError = 0.0;
+  for (std::size_t i = 0; i < imagePoints.size(); ++i) {
+    totalError += cv::norm(imagePoints[i] - projectedPoints[i]);
+  }
+  return imagePoints.empty() ? 0.0 : totalError / imagePoints.size();
 }
 
 EulerAnglesDegrees eulerFromRotationMatrix(const cv::Mat& rotationMatrix) {
@@ -280,6 +332,12 @@ bool ObjectDetection::initializeCamera(std::string* errorMessage) {
     return false;
   }
 
+  impl_->capture.set(cv::CAP_PROP_AUTOFOCUS, 0.0);
+  impl_->capture.set(cv::CAP_PROP_FOCUS, kManualFocusValue);
+  impl_->capture.set(cv::CAP_PROP_AUTO_EXPOSURE, 0.0);
+  impl_->capture.set(cv::CAP_PROP_EXPOSURE, kManualExposureValue);
+  impl_->capture.set(cv::CAP_PROP_AUTO_WB, 0.0);
+
   // Read one frame during initialization so camera failures surface before the
   // polling loop.
   cv::Mat frame;
@@ -334,19 +392,9 @@ AprilTagDetectionFrame ObjectDetection::detectAprilTagsWithFrame(
   std::vector<int> ids;
   detectAprilTagCorners(grayFrame, &corners, &ids);
 
-  cv::Mat rgbFrame;
-  cv::cvtColor(frame, rgbFrame, cv::COLOR_BGR2RGB);
-  if (!rgbFrame.isContinuous()) {
-    rgbFrame = rgbFrame.clone();
-  }
-
-  detectionFrame.width = rgbFrame.cols;
-  detectionFrame.height = rgbFrame.rows;
-  detectionFrame.rgbPixels.assign(
-      rgbFrame.datastart,
-      rgbFrame.datastart +
-          (static_cast<std::size_t>(rgbFrame.cols) *
-           static_cast<std::size_t>(rgbFrame.rows) * kRgbChannelCount));
+  detectionFrame.width = frame.cols;
+  detectionFrame.height = frame.rows;
+  detectionFrame.rgbPixels = rgbPixelsFromBgrFrame(frame);
   detectionFrame.aprilTags =
       solveTagPoses(corners, ids, impl_->config.aprilTagSizeMeters,
                     impl_->cameraMatrix, impl_->distortionCoefficients);
@@ -355,6 +403,91 @@ AprilTagDetectionFrame ObjectDetection::detectAprilTagsWithFrame(
     errorMessage->clear();
   }
   return detectionFrame;
+}
+
+CheckerboardCalibrationFrame ObjectDetection::calibrateFromCheckerboardFrame(
+    const CheckerboardCalibrationConfig& calibrationConfig,
+    std::string* errorMessage) {
+  CheckerboardCalibrationFrame calibrationFrame;
+
+  if (!impl_->capture.isOpened()) {
+    setError(errorMessage, "Camera is not initialized.");
+    return calibrationFrame;
+  }
+
+  cv::Mat frame;
+  if (!impl_->capture.read(frame) || frame.empty()) {
+    setError(errorMessage, "Could not read a frame from the camera.");
+    return calibrationFrame;
+  }
+
+  calibrationFrame.width = frame.cols;
+  calibrationFrame.height = frame.rows;
+  calibrationFrame.rgbPixels = rgbPixelsFromBgrFrame(frame);
+
+  cv::Mat grayFrame;
+  cv::cvtColor(frame, grayFrame, cv::COLOR_BGR2GRAY);
+
+  std::vector<cv::Point2f> imageCorners;
+  const cv::Size checkerboardSize(calibrationConfig.innerCornersX,
+                                  calibrationConfig.innerCornersY);
+  calibrationFrame.checkerboardFound = cv::findChessboardCorners(
+      grayFrame, checkerboardSize, imageCorners,
+      cv::CALIB_CB_ADAPTIVE_THRESH | cv::CALIB_CB_NORMALIZE_IMAGE);
+  if (!calibrationFrame.checkerboardFound) {
+    if (errorMessage != nullptr) {
+      errorMessage->clear();
+    }
+    return calibrationFrame;
+  }
+
+  cv::cornerSubPix(
+      grayFrame, imageCorners,
+      cv::Size(kCheckerboardCornerSubPixWindow,
+               kCheckerboardCornerSubPixWindow),
+      cv::Size(kCheckerboardCornerSubPixDeadZone,
+               kCheckerboardCornerSubPixDeadZone),
+      cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::MAX_ITER,
+                       kCheckerboardCornerSubPixMaxIterations,
+                       kCheckerboardCornerSubPixEpsilon));
+
+  const std::vector<cv::Point3f> objectPoints =
+      checkerboardObjectPoints(calibrationConfig);
+  std::vector<std::vector<cv::Point3f>> objectPointSets = {objectPoints};
+  std::vector<std::vector<cv::Point2f>> imagePointSets = {imageCorners};
+  std::vector<cv::Mat> rotationVectors;
+  std::vector<cv::Mat> translationVectors;
+  cv::Mat cameraMatrix =
+      cv::Mat::eye(kCameraMatrixRows, kCameraMatrixCols, CV_64F);
+  cameraMatrix.at<double>(kFirstMatrixRow, kFirstMatrixCol) =
+      kApproximateFocalLengthScale * static_cast<double>(frame.cols);
+  cameraMatrix.at<double>(kSecondMatrixRow, kSecondMatrixCol) =
+      kApproximateFocalLengthScale * static_cast<double>(frame.cols);
+  cameraMatrix.at<double>(kFirstMatrixRow, kThirdMatrixCol) =
+      static_cast<double>(frame.cols) * kHalfScale;
+  cameraMatrix.at<double>(kSecondMatrixRow, kThirdMatrixCol) =
+      static_cast<double>(frame.rows) * kHalfScale;
+  cv::Mat distortionCoefficients =
+      cv::Mat::zeros(kDefaultDistortionCoefficientCount, 1, CV_64F);
+
+  cv::calibrateCamera(
+      objectPointSets, imagePointSets, frame.size(), cameraMatrix,
+      distortionCoefficients, rotationVectors, translationVectors,
+      cv::CALIB_USE_INTRINSIC_GUESS | cv::CALIB_ZERO_TANGENT_DIST);
+
+  impl_->cameraMatrix = cameraMatrix;
+  impl_->distortionCoefficients = distortionCoefficients;
+  impl_->intrinsicsInitialized = true;
+  calibrationFrame.calibrated = true;
+  calibrationFrame.reprojectionError = meanReprojectionError(
+      objectPoints, imageCorners, impl_->cameraMatrix,
+      impl_->distortionCoefficients, rotationVectors.front(),
+      translationVectors.front());
+
+  if (errorMessage != nullptr) {
+    errorMessage->clear();
+  }
+  return calibrationFrame;
 }
 
 const ObjectDetectionConfig& ObjectDetection::config() const {

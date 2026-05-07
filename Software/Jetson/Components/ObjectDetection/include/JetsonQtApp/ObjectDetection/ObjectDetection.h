@@ -10,7 +10,7 @@ namespace jetsonqt::objectdetection {
 
 inline constexpr int kDefaultCameraIndex = 0;
 inline constexpr int kDefaultCaptureBackend = 0;
-inline constexpr double kDefaultAprilTagSizeMeters = 0.10;
+inline constexpr double kDefaultAprilTagSizeMeters = 0.0254;
 inline constexpr bool kDefaultUseApproximateIntrinsicsWhenUncalibrated = true;
 inline constexpr int kInvalidAprilTagId = -1;
 
@@ -51,6 +51,21 @@ struct AprilTagDetectionFrame {
   std::vector<AprilTagPose> aprilTags;
 };
 
+struct CheckerboardCalibrationConfig {
+  int innerCornersX = 8;
+  int innerCornersY = 6;
+  double squareSizeMeters = 0.01905;
+};
+
+struct CheckerboardCalibrationFrame {
+  int width = 0;
+  int height = 0;
+  std::vector<unsigned char> rgbPixels;
+  bool checkerboardFound = false;
+  bool calibrated = false;
+  double reprojectionError = 0.0;
+};
+
 class ObjectDetection {
  public:
   explicit ObjectDetection(ObjectDetectionConfig config = {});
@@ -70,6 +85,9 @@ class ObjectDetection {
   [[nodiscard]] std::vector<AprilTagPose> detectAprilTags(
       std::string* errorMessage = nullptr);
   [[nodiscard]] AprilTagDetectionFrame detectAprilTagsWithFrame(
+      std::string* errorMessage = nullptr);
+  [[nodiscard]] CheckerboardCalibrationFrame calibrateFromCheckerboardFrame(
+      const CheckerboardCalibrationConfig& calibrationConfig = {},
       std::string* errorMessage = nullptr);
 
   [[nodiscard]] const ObjectDetectionConfig& config() const;

@@ -24,11 +24,17 @@ DEFAULT_TAG_SIZE_INCHES = 1.0
 DEFAULT_TAGS_PER_PAGE = 12
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_OUTPUT_PATH = REPO_ROOT / "generated_pdfs/apriltag_36h11_24_tags_1in.pdf"
+DEFAULT_CHECKERBOARD_OUTPUT_PATH = REPO_ROOT / "generated_pdfs/camera_calibration_checkerboard.pdf"
 LETTER_PAGE_SIZE_POINTS = (612.0, 792.0)
 POINTS_PER_INCH = 72.0
 PAGE_MARGIN_INCHES = 0.5
 TAG_LABEL_HEIGHT_INCHES = 0.22
 TAG_GAP_INCHES = 0.35
+CHECKERBOARD_COLUMNS = 9
+CHECKERBOARD_ROWS = 7
+CHECKERBOARD_INNER_CORNERS_X = CHECKERBOARD_COLUMNS - 1
+CHECKERBOARD_INNER_CORNERS_Y = CHECKERBOARD_ROWS - 1
+CHECKERBOARD_SQUARE_SIZE_INCHES = 0.75
 MARKER_RENDER_PIXELS = 140
 BLACK_PIXEL_THRESHOLD = 128
 PDF_FLOAT_PRECISION = 4
@@ -262,6 +268,36 @@ def build_pdf(page_streams: Sequence[bytes], page_size: tuple[float, float]) -> 
     return bytes(pdf)
 
 
+def checkerboard_page_stream() -> bytes:
+    page_width, page_height = LETTER_PAGE_SIZE_POINTS
+    square_size = CHECKERBOARD_SQUARE_SIZE_INCHES * POINTS_PER_INCH
+    board_width = CHECKERBOARD_COLUMNS * square_size
+    board_height = CHECKERBOARD_ROWS * square_size
+    board_x = (page_width - board_width) / 2.0
+    board_y = (page_height - board_height) / 2.0 + 28.0
+    commands = [
+        text_pdf_commands(
+            f"Camera calibration checkerboard: {CHECKERBOARD_INNER_CORNERS_X} x {CHECKERBOARD_INNER_CORNERS_Y} inner corners, "
+            f"{CHECKERBOARD_SQUARE_SIZE_INCHES:.3f} inch squares. Print at 100% actual size.",
+            PAGE_MARGIN_INCHES * POINTS_PER_INCH,
+            22.0,
+            8.0,
+        ),
+        "0 0 0 rg\n",
+    ]
+
+    for row in range(CHECKERBOARD_ROWS):
+        for column in range(CHECKERBOARD_COLUMNS):
+            if (row + column) % 2 == 0:
+                x = board_x + column * square_size
+                y = board_y + (CHECKERBOARD_ROWS - row - 1) * square_size
+                commands.append(
+                    f"{pdf_number(x)} {pdf_number(y)} {pdf_number(square_size)} {pdf_number(square_size)} re f\n"
+                )
+
+    return "".join(commands).encode("ascii")
+
+
 def generate_pdf(output_path: Path, start_id: int, tag_count: int) -> None:
     if tag_count <= 0:
         raise ValueError("tag_count must be greater than zero.")
@@ -292,11 +328,22 @@ def generate_pdf(output_path: Path, start_id: int, tag_count: int) -> None:
     output_path.write_bytes(build_pdf(page_streams, LETTER_PAGE_SIZE_POINTS))
 
 
+def generate_checkerboard_pdf(output_path: Path) -> None:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_bytes(build_pdf([checkerboard_page_stream()], LETTER_PAGE_SIZE_POINTS))
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Generate a multipage PDF with 24 unique 1x1 inch AprilTag 36h11 markers."
     )
     parser.add_argument("--out", type=Path, default=DEFAULT_OUTPUT_PATH, help="Output PDF path.")
+    parser.add_argument(
+        "--checkerboard-out",
+        type=Path,
+        default=DEFAULT_CHECKERBOARD_OUTPUT_PATH,
+        help="Output checkerboard calibration PDF path.",
+    )
     parser.add_argument(
         "--start-id", type=int, default=DEFAULT_START_ID, help="First AprilTag ID."
     )
@@ -310,6 +357,8 @@ def main() -> int:
     args = parse_args()
     generate_pdf(args.out, args.start_id, args.count)
     print(f"Wrote {args.out}")
+    generate_checkerboard_pdf(args.checkerboard_out)
+    print(f"Wrote {args.checkerboard_out}")
     print("Print at 100% scale / Actual Size. Do not use Scale to Fit.")
     return os.EX_OK
 

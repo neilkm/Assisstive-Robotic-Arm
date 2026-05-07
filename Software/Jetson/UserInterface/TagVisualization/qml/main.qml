@@ -70,6 +70,7 @@ Window {
 
         Row {
             id: content
+            visible: tagVisualization.calibrated
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: header.bottom
@@ -352,6 +353,75 @@ Window {
         }
 
         Rectangle {
+            id: calibrationPanel
+            visible: !tagVisualization.calibrated
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: header.bottom
+            anchors.bottom: footer.top
+            anchors.margins: 18
+            color: panelColor
+            border.color: panelBorder
+            border.width: 1
+            radius: 6
+            clip: true
+
+            Text {
+                id: calibrationTitle
+                anchors.left: parent.left
+                anchors.top: parent.top
+                anchors.margins: 24
+                text: "Camera Calibration"
+                color: primaryText
+                font.pixelSize: 24
+                font.bold: true
+            }
+
+            Text {
+                id: calibrationStatus
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: calibrationTitle.bottom
+                anchors.margins: 24
+                text: tagVisualization.calibrationStatusText
+                color: "#ffb86b"
+                font.pixelSize: 17
+                font.bold: true
+                wrapMode: Text.WordWrap
+            }
+
+            Rectangle {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: calibrationStatus.bottom
+                anchors.bottom: parent.bottom
+                anchors.margins: 24
+                color: "#05080c"
+                border.color: "#223041"
+                border.width: 1
+                clip: true
+
+                Image {
+                    anchors.fill: parent
+                    source: tagVisualization.cameraImageSource
+                    cache: false
+                    fillMode: Image.PreserveAspectFit
+                    smooth: true
+                    visible: source.toString().length > 0
+                }
+
+                Text {
+                    anchors.centerIn: parent
+                    visible: tagVisualization.cameraImageSource.length === 0
+                    text: "Waiting for camera frame"
+                    color: mutedText
+                    font.pixelSize: 18
+                    font.bold: true
+                }
+            }
+        }
+
+        Rectangle {
             id: footer
             anchors.left: parent.left
             anchors.right: parent.right
@@ -363,7 +433,7 @@ Window {
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.leftMargin: 24
-                text: "OpenCV camera frame | coordinates relative to AprilTag ID " + tagVisualization.homeTagId + " | Esc quits"
+                text: tagVisualization.calibrated ? "OpenCV camera frame | coordinates relative to AprilTag ID " + tagVisualization.homeTagId + " | smoothing/deadband active | Esc quits" : "Show the printed checkerboard until calibration completes | Esc quits"
                 color: mutedText
                 font.pixelSize: 13
             }

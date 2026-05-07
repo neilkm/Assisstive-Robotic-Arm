@@ -21,6 +21,9 @@ constexpr Matrix3 kOpenCvTagToFlatHomeBasis = {1.0, 0.0, 0.0, 0.0, -1.0,
 constexpr int kPollingIntervalMs = 150;
 constexpr int kRgbChannelCount = 3;
 constexpr int kFirstFrameRevision = 1;
+constexpr double kPositionDeadbandMeters = 0.004;
+constexpr double kEulerDeadbandDegrees = 1.0;
+constexpr double kSmoothingAlpha = 0.25;
 constexpr double kSingularEulerThreshold = 1e-6;
 constexpr double kRadiansToDegrees = 180.0 / 3.14159265358979323846;
 
@@ -142,6 +145,18 @@ std::vector<AprilTagPose> posesRelativeToHome(
   return relativePoses;
 }
 
+double delta(double current, double previous) { return current - previous; }
+
+double smoothScalar(double current, double previous, double deadband) {
+  const double difference = delta(current, previous);
+  if (std::abs(difference) < deadband) {
+    return previous;
+  }
+  return previous + (difference * kSmoothingAlpha);
+}
+
+std::optional<AprilTagPose> findPoseById(const QVariantList&, int) = delete;
+
 }  // namespace
 
 TagVisualizationController::TagVisualizationController(
@@ -171,6 +186,16 @@ bool TagVisualizationController::homeFrameAvailable() const {
 
 int TagVisualizationController::homeTagId() const { return homeTagId_; }
 
+bool TagVisualizationController::calibrated() const { return calibrated_; }
+
+double TagVisualizationController::calibrationReprojectionError() const {
+  return calibrationReprojectionError_;
+}
+
+QString TagVisualizationController::calibrationStatusText() const {
+  return calibrationStatusText_;
+}
+
 QImage TagVisualizationController::latestCameraImage() const {
   return latestCameraImage_;
 }
@@ -189,10 +214,13 @@ void TagVisualizationController::start() {
     return;
   }
 
-  statusText_ = QStringLiteral("Camera connected.");
+  calibrated_ = false;
+  calibrationStatusText_ =
+      QStringLiteral("Show the printed checkerboard to the camera.");
+  statusText_ = QStringLiteral("Camera connected. Waiting for checkerboard.");
   emit visualizationChanged();
 
-  pollCamera();
+  pollCheckerboardCalibration();
   pollTimer_.start();
 }
 
@@ -201,9 +229,16 @@ void TagVisualizationController::stop() {
   detector_.releaseCamera();
   cameraReady_ = false;
   homeFrameAvailable_ = false;
+  calibrated_ = false;
+  smoothedPoses_.clear();
 }
 
 void TagVisualizationController::pollCamera() {
+  if (!calibrated_) {
+    pollCheckerboardCalibration();
+    return;
+  }
+
   std::string errorMessage;
   const jetsonqt::objectdetection::AprilTagDetectionFrame frame =
       detector_.detectAprilTagsWithFrame(&errorMessage);
@@ -219,13 +254,15 @@ void TagVisualizationController::pollCamera() {
   if (homePose.has_value()) {
     const std::vector<AprilTagPose> relativePoses =
         posesRelativeToHome(frame.aprilTags, *homePose);
-    tagPoses_ = toTagPoseList(relativePoses);
+    smoothedPoses_ = smoothPoses(relativePoses);
+    tagPoses_ = toTagPoseList(smoothedPoses_);
     homeFrameAvailable_ = true;
     statusText_ = QStringLiteral("%1 tag(s) visible. Home tag %2 frame active.")
                       .arg(frame.aprilTags.size())
                       .arg(homeTagId_);
   } else {
     tagPoses_ = {};
+    smoothedPoses_.clear();
     homeFrameAvailable_ = false;
     statusText_ = QStringLiteral("%1 tag(s) visible. Home tag %2 not visible.")
                       .arg(frame.aprilTags.size())
@@ -233,18 +270,59 @@ void TagVisualizationController::pollCamera() {
   }
 
   if (frame.width > 0 && frame.height > 0 && !frame.rgbPixels.empty()) {
-    const QImage image(frame.rgbPixels.data(), frame.width, frame.height,
-                       frame.width * kRgbChannelCount, QImage::Format_RGB888);
-    latestCameraImage_ = image.copy();
-    frameRevision_ =
-        frameRevision_ == 0 ? kFirstFrameRevision : frameRevision_ + 1;
-    cameraImageSource_ =
-        QStringLiteral("image://tagVisualizationCamera/live?rev=%1")
-            .arg(frameRevision_);
-    emit cameraImageChanged();
+    updateCameraImage(frame.width, frame.height, frame.rgbPixels);
   }
 
   emit visualizationChanged();
+}
+
+void TagVisualizationController::pollCheckerboardCalibration() {
+  std::string errorMessage;
+  const jetsonqt::objectdetection::CheckerboardCalibrationFrame frame =
+      detector_.calibrateFromCheckerboardFrame({}, &errorMessage);
+  if (!errorMessage.empty()) {
+    calibrationStatusText_ = QString::fromStdString(errorMessage);
+    statusText_ = calibrationStatusText_;
+    emit visualizationChanged();
+    return;
+  }
+
+  updateCameraImage(frame.width, frame.height, frame.rgbPixels);
+
+  if (!frame.checkerboardFound) {
+    calibrationStatusText_ =
+        QStringLiteral("Looking for an 8 x 6 inner-corner checkerboard.");
+    statusText_ = calibrationStatusText_;
+    emit visualizationChanged();
+    return;
+  }
+
+  if (frame.calibrated) {
+    calibrated_ = true;
+    calibrationReprojectionError_ = frame.reprojectionError;
+    calibrationStatusText_ =
+        QStringLiteral("Calibration complete. Reprojection error %1 px.")
+            .arg(calibrationReprojectionError_, 0, 'f', 3);
+    statusText_ = calibrationStatusText_;
+    emit visualizationChanged();
+  }
+}
+
+void TagVisualizationController::updateCameraImage(
+    int width, int height, const std::vector<unsigned char>& rgbPixels) {
+  if (width <= 0 || height <= 0 || rgbPixels.empty()) {
+    return;
+  }
+
+  const QImage image(rgbPixels.data(), width, height, width * kRgbChannelCount,
+                     QImage::Format_RGB888);
+  latestCameraImage_ = image.copy();
+  frameRevision_ =
+      frameRevision_ == 0 ? kFirstFrameRevision : frameRevision_ + 1;
+  cameraImageSource_ =
+      QStringLiteral("image://tagVisualizationCamera/live?rev=%1")
+          .arg(frameRevision_);
+  emit cameraImageChanged();
 }
 
 QVariantList TagVisualizationController::toTagPoseList(
@@ -255,6 +333,40 @@ QVariantList TagVisualizationController::toTagPoseList(
     tags.append(toTagPoseMap(pose));
   }
   return tags;
+}
+
+std::vector<AprilTagPose> TagVisualizationController::smoothPoses(
+    const std::vector<AprilTagPose>& poses) {
+  std::vector<AprilTagPose> smoothed;
+  smoothed.reserve(poses.size());
+
+  for (const AprilTagPose& pose : poses) {
+    const std::optional<AprilTagPose> previousPose =
+        findPoseById(smoothedPoses_, pose.id);
+    if (!previousPose.has_value()) {
+      smoothed.push_back(pose);
+      continue;
+    }
+
+    AprilTagPose filtered = pose;
+    filtered.position.x = smoothScalar(
+        pose.position.x, previousPose->position.x, kPositionDeadbandMeters);
+    filtered.position.y = smoothScalar(
+        pose.position.y, previousPose->position.y, kPositionDeadbandMeters);
+    filtered.position.z = smoothScalar(
+        pose.position.z, previousPose->position.z, kPositionDeadbandMeters);
+    filtered.euler.pitchX = smoothScalar(
+        pose.euler.pitchX, previousPose->euler.pitchX, kEulerDeadbandDegrees);
+    filtered.euler.yawY = smoothScalar(
+        pose.euler.yawY, previousPose->euler.yawY, kEulerDeadbandDegrees);
+    filtered.euler.rollZ = smoothScalar(
+        pose.euler.rollZ, previousPose->euler.rollZ, kEulerDeadbandDegrees);
+    filtered.distanceMeters =
+        norm({filtered.position.x, filtered.position.y, filtered.position.z});
+    smoothed.push_back(filtered);
+  }
+
+  return smoothed;
 }
 
 TagVisualizationImageProvider::TagVisualizationImageProvider(

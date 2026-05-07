@@ -102,7 +102,7 @@ void printUsage(const char* executableName) {
             << "Options:\n"
             << "  --camera-index N       OpenCV camera index. Default: 0\n"
             << "  --tag-size-m METERS    AprilTag black-square edge length. "
-               "Default: 0.10\n"
+               "Default: 0.0254\n"
             << "  --calibration PATH     OpenCV YAML with camera_matrix and "
                "dist_coeffs.\n"
             << "  --home-tag-id N        Express all tag poses relative to "
