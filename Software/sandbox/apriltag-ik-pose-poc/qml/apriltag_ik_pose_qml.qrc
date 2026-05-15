@@ -1,0 +1,8 @@
+<RCC>
+    <qresource prefix="/ApriltagIkPose">
+        <file alias="InputBox.qml">InputBox.qml</file>
+        <file alias="main.qml">main.qml</file>
+        <file alias="Theme.qml">Theme.qml</file>
+        <file alias="ToolButton.qml">ToolButton.qml</file>
+    </qresource>
+</RCC>

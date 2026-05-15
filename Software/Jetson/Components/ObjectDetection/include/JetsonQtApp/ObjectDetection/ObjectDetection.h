@@ -1,0 +1,100 @@
+#pragma once
+
+#include <array>
+#include <cstddef>
+#include <memory>
+#include <string>
+#include <vector>
+
+namespace jetsonqt::objectdetection {
+
+inline constexpr int kDefaultCameraIndex = 0;
+inline constexpr int kDefaultCaptureBackend = 0;
+inline constexpr double kDefaultAprilTagSizeMeters = 0.0254;
+inline constexpr bool kDefaultUseApproximateIntrinsicsWhenUncalibrated = true;
+inline constexpr int kInvalidAprilTagId = -1;
+
+struct ObjectDetectionConfig {
+  int cameraIndex = kDefaultCameraIndex;
+  int captureBackend = kDefaultCaptureBackend;
+  double aprilTagSizeMeters = kDefaultAprilTagSizeMeters;
+  std::string calibrationFilePath;
+  bool useApproximateIntrinsicsWhenUncalibrated =
+      kDefaultUseApproximateIntrinsicsWhenUncalibrated;
+};
+
+struct EulerAnglesDegrees {
+  double pitchX = 0.0;
+  double yawY = 0.0;
+  double rollZ = 0.0;
+};
+
+struct PositionMeters {
+  double x = 0.0;
+  double y = 0.0;
+  double z = 0.0;
+};
+
+struct AprilTagPose {
+  int id = kInvalidAprilTagId;
+  PositionMeters position;
+  EulerAnglesDegrees euler;
+  std::array<double, 9> rotationMatrixRowMajor = {1.0, 0.0, 0.0, 0.0, 1.0,
+                                                  0.0, 0.0, 0.0, 1.0};
+  double distanceMeters = 0.0;
+};
+
+struct AprilTagDetectionFrame {
+  int width = 0;
+  int height = 0;
+  std::vector<unsigned char> rgbPixels;
+  std::vector<AprilTagPose> aprilTags;
+};
+
+struct CheckerboardCalibrationConfig {
+  int innerCornersX = 8;
+  int innerCornersY = 6;
+  double squareSizeMeters = 0.01905;
+};
+
+struct CheckerboardCalibrationFrame {
+  int width = 0;
+  int height = 0;
+  std::vector<unsigned char> rgbPixels;
+  bool checkerboardFound = false;
+  bool calibrated = false;
+  double reprojectionError = 0.0;
+};
+
+class ObjectDetection {
+ public:
+  explicit ObjectDetection(ObjectDetectionConfig config = {});
+  ~ObjectDetection();
+
+  ObjectDetection(const ObjectDetection&) = delete;
+  ObjectDetection& operator=(const ObjectDetection&) = delete;
+  ObjectDetection(ObjectDetection&&) noexcept;
+  ObjectDetection& operator=(ObjectDetection&&) noexcept;
+
+  [[nodiscard]] bool initializeCamera(std::string* errorMessage = nullptr);
+  [[nodiscard]] bool isCameraInitialized() const;
+  void releaseCamera();
+
+  // Captures one frame, detects every visible AprilTag 36h11 marker, and solves
+  // each tag pose in the OpenCV camera frame: +x right, +y down, +z forward.
+  [[nodiscard]] std::vector<AprilTagPose> detectAprilTags(
+      std::string* errorMessage = nullptr);
+  [[nodiscard]] AprilTagDetectionFrame detectAprilTagsWithFrame(
+      std::string* errorMessage = nullptr);
+  [[nodiscard]] CheckerboardCalibrationFrame calibrateFromCheckerboardFrame(
+      const CheckerboardCalibrationConfig& calibrationConfig = {},
+      std::string* errorMessage = nullptr);
+
+  [[nodiscard]] const ObjectDetectionConfig& config() const;
+
+ private:
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
+};
+
+}  // namespace jetsonqt::objectdetection

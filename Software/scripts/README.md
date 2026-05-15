@@ -22,6 +22,10 @@ Build all Jetson Qt apps:
 Software/scripts/build_jetson_qt_apps.sh
 ```
 
+Build artifacts are written to `builds/Jetson`. App executables are under
+`builds/Jetson/apps/<app_name>/`, and QTest executables are under
+`builds/Jetson/tests/<test_name>/`.
+
 Extra CMake configure arguments are passed through to `cmake -S ... -B ...`.
 For example:
 

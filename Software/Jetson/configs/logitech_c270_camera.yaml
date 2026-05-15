@@ -1,0 +1,20 @@
+%YAML:1.0
+---
+# Approximate Logitech C270 intrinsics for the common 640x480 OpenCV capture
+# mode. Replace this with a real checkerboard calibration before final metric
+# measurements.
+image_width: 640
+image_height: 480
+camera_model: "Logitech C270 approximate"
+camera_matrix: !!opencv-matrix
+  rows: 3
+  cols: 3
+  dt: d
+  data: [700.0, 0.0, 320.0,
+         0.0, 700.0, 240.0,
+         0.0, 0.0, 1.0]
+dist_coeffs: !!opencv-matrix
+  rows: 5
+  cols: 1
+  dt: d
+  data: [-0.1200, 0.0300, 0.0, 0.0, 0.0]
