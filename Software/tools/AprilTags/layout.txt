@@ -1,0 +1,127 @@
+## Page Layout ##
+
+/*
+imported variables set by user
+*/
+int tagSize //default 1 inch
+string tagFamily //default 36h11
+bool enableChckbd //default yes
+int pageCount //default 2
+
+function var getTags(string family, int pages) {
+  //return a tagsList struct that contains 4 times as many april tags as pages requested
+}
+
+function string getInfoText(int currPage) {
+  //based on current page number being printed:
+  //get the 4 relevant april tag ids
+  return string("Cut along dotted lines to paper edge. \nTopLeft: %s \nTopRight: %s \nBottLeft: %s \nBottRight: %s", /*relevant april tag ids to the current page*/)
+}
+
+/*
+tagsList is struct that holds list of aprilTag objects
+aprilTag objects contain the image png of the tag and the id of the tag
+*/
+var tagsList = getTags(tagFamily, pageCount)
+
+/* components */
+
+// one single page
+Page {
+  height: 11 //inches
+  width: 8.5 //inches
+  id: root
+  color: blank
+}
+
+// an april tag
+Tag {
+  index: 0 //starts at 0 determines which tag in list to use
+  height: tagSize
+  width: tagSize
+  image: tagsList
+}
+
+//cutting guide
+Rectangle {
+  anchors.centerIn: parent
+  anchors.fill: parent
+  anchors.margins: tagSize
+  border.width: 0.1 //inches
+  border.style: dotted
+  fill.color: transparent
+}
+
+//info guide
+Rectangle {
+  var currPage //current page being printed
+
+  height: 2 //inches
+  width: 3 //inches
+
+  Text {
+    anchors.fill: parent
+    clip: true
+    elide: true
+    text: getInfoText(currPage)
+  }
+}
+
+/* How i want it to look */
+
+//a repeater that makes a new page for the value of pageCount and gets the relevant 4 april tags for the page from the list
+
+Repeater { // x pageCount number of times
+
+  Page {
+
+      // tags at corners
+      Tag {
+        id: tag0
+        image: //the relevant image from the list given current index
+        anchors.top: parent.top
+        anchors.left: parent.left
+      }  
+      Tag {
+        id: tag1
+        image: //the relevant image from the list given current index
+        anchors.top: parent.top
+        anchors.right: parent.right
+      }  
+      Tag {
+        id: tag2
+        image: //the relevant image from the list given current index
+        anchors.bottom: parent.bottom
+        anchors.left: parent.left
+      }  
+      Tag {
+        id: tag3
+        image: //the relevant image from the list given current index
+        anchors.bottom: parent.bottom
+        anchors.right: parent.right
+      } 
+      
+      // cutting guide
+      Rectangle {
+          color: transparent
+          border.color: black
+          border.width: 0.1 //inches
+          border.style: dotted
+          anchors.top: tag0.bottom
+          anchors.bottom: tag3.top
+          anchors.left: tag2.right
+          anchors.right: tag1.left
+          
+          //info text
+          Text {
+            anchors.centerIn: parent.center
+          }
+      }
+
+  }
+
+}
+
+//a last optional page that is only visible if checkerboard is enabled
+
+//checkerboard icon centered on an empty page

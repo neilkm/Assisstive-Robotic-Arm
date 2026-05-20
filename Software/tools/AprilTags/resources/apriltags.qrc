@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/AprilTags">
+        <file alias="TagSheetLayout.qml">../TagSheetLayout.qml</file>
+    </qresource>
+</RCC>
