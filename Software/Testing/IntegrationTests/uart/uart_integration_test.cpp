@@ -27,7 +27,6 @@
 //   --iterations=N              (default: 100)
 //   --drop-every=N              (default: 5)
 //   --timeout-ms=N              (default: 150)
-//   --verbose
 
 #include "../common/virtual_serial.h"
 #include "../common/test_stats.h"
@@ -58,7 +57,6 @@ struct Config {
     bool run_normal       = true;
     bool run_drops        = true;
     bool run_duplicates   = true;
-    bool verbose          = false;
 };
 
 static Config parseArgs(int argc, char** argv)
@@ -66,30 +64,58 @@ static Config parseArgs(int argc, char** argv)
     Config c;
     for (int i = 1; i < argc; ++i) {
         const std::string a(argv[i]);
-        if (a == "--mode=hardware")    c.use_hardware = true;
-        else if (a == "--mode=virtual") c.use_hardware = false;
-        else if (a.substr(0, 9) == "--device=")      c.device = a.substr(9);
-        else if (a.substr(0, 7) == "--baud=")        c.baud = std::stoi(a.substr(7));
-        else if (a.substr(0, 13) == "--iterations=") c.iterations = std::stoi(a.substr(13));
-        else if (a.substr(0, 13) == "--timeout-ms=") c.timeout_ms = std::stoi(a.substr(13));
-        else if (a.substr(0, 13) == "--drop-every=") c.drop_every = std::stoi(a.substr(13));
+        if      (a == "--mode=hardware")           c.use_hardware = true;
+        else if (a == "--mode=virtual")             c.use_hardware = false;
+        else if (a.substr(0, 9)  == "--device=")   c.device       = a.substr(9);
+        else if (a.substr(0, 7)  == "--baud=")      c.baud         = std::stoi(a.substr(7));
+        else if (a.substr(0, 13) == "--iterations=") c.iterations   = std::stoi(a.substr(13));
+        else if (a.substr(0, 13) == "--timeout-ms=") c.timeout_ms   = std::stoi(a.substr(13));
+        else if (a.substr(0, 13) == "--drop-every=") c.drop_every   = std::stoi(a.substr(13));
         else if (a == "--test=normal")     { c.run_drops = false; c.run_duplicates = false; }
         else if (a == "--test=drops")      { c.run_normal = false; c.run_duplicates = false; }
         else if (a == "--test=duplicates") { c.run_normal = false; c.run_drops = false; }
-        else if (a == "--verbose")         c.verbose = true;
     }
     return c;
+}
+
+// ─── Formatting helpers ───────────────────────────────────────────────────────
+
+static void printAngles(const char* tag, const float* angles, int count)
+{
+    printf("  %s [", tag);
+    for (int i = 0; i < count; ++i) {
+        printf("%s%6.1f", i ? " " : "", angles[i]);
+    }
+    printf("]\n");
+}
+
+static void printExchangeOk(uint8_t seq, int64_t latency_us)
+{
+    printf("  seq=%3u  RECV  %6lld us  OK\n", (unsigned)seq, (long long)latency_us);
+}
+
+static void printExchangeTimeout(uint8_t seq)
+{
+    printf("  seq=%3u  TIMEOUT\n", (unsigned)seq);
+}
+
+static void printExchangeCorrupt(uint8_t seq)
+{
+    printf("  seq=%3u  CORRUPT frame\n", (unsigned)seq);
+}
+
+static void printExchangeDuplicate(uint8_t seq)
+{
+    printf("  seq=%3u  DUP (extra frame ignored)\n", (unsigned)seq);
 }
 
 // ─── Virtual STM32 simulator ──────────────────────────────────────────────────
 
 struct SimConfig {
-    int drop_every      = 0;   // 0 = no drops
+    int  drop_every     = 0;
     bool send_duplicate = false;
 };
 
-// Runs in a background thread: reads desired-state packets, responds with
-// actual-state packets (echoing the joint angles, zero force).
 static void stm32SimThread(int device_fd, int expected_packets, const SimConfig& sc,
                            std::atomic<int>& sim_sent, std::atomic<bool>& sim_done)
 {
@@ -102,7 +128,6 @@ static void stm32SimThread(int device_fd, int expected_packets, const SimConfig&
     while (received < expected_packets) {
         const ssize_t n = fd_read_timeout(device_fd, buf, 1, 500);
         if (n <= 0) continue;
-
         if (!arm_uart_parser_feed(&parser, buf[0])) continue;
 
         arm_desired_state_t desired {};
@@ -111,14 +136,11 @@ static void stm32SimThread(int device_fd, int expected_packets, const SimConfig&
 
         ++received;
 
-        // Simulate drop
         if (sc.drop_every > 0 && (received % sc.drop_every == 0)) continue;
 
-        // Build actual-state response (echo angles, zero force)
         arm_actual_state_t actual {};
-        for (size_t j = 0; j < ARM_UART_JOINT_COUNT; ++j) {
+        for (size_t j = 0; j < ARM_UART_JOINT_COUNT; ++j)
             actual.actual_joint_angles[j] = desired.desired_joint_angles[j];
-        }
         actual.force_sensor = 0.0f;
 
         uint8_t frame[ARM_UART_MAX_FRAME_SIZE];
@@ -126,9 +148,7 @@ static void stm32SimThread(int device_fd, int expected_packets, const SimConfig&
         if (len == 0) continue;
 
         fd_write_all(device_fd, frame, len);
-        if (sc.send_duplicate) {
-            fd_write_all(device_fd, frame, len); // send twice
-        }
+        if (sc.send_duplicate) fd_write_all(device_fd, frame, len);
         ++sim_sent;
     }
     sim_done = true;
@@ -138,12 +158,13 @@ static void stm32SimThread(int device_fd, int expected_packets, const SimConfig&
 
 static bool runVirtualExchange(int jetson_fd, uint8_t seq,
                                const float* desired_angles, TestStats& stats,
-                               int timeout_ms, bool verbose)
+                               int timeout_ms)
 {
+    printAngles("SEND", desired_angles, ARM_UART_JOINT_COUNT);
+
     arm_desired_state_t desired {};
-    for (size_t i = 0; i < ARM_UART_JOINT_COUNT; ++i) {
+    for (size_t i = 0; i < ARM_UART_JOINT_COUNT; ++i)
         desired.desired_joint_angles[i] = desired_angles[i];
-    }
 
     uint8_t frame[ARM_UART_MAX_FRAME_SIZE];
     const size_t len = arm_uart_build_desired_state_packet(&desired, seq, frame, sizeof(frame));
@@ -153,7 +174,6 @@ static bool runVirtualExchange(int jetson_fd, uint8_t seq,
     const int64_t t0 = usNow();
     if (!fd_write_all(jetson_fd, frame, len)) return false;
 
-    // Read back actual-state response byte by byte
     arm_uart_parser_t parser;
     arm_uart_parser_init(&parser);
 
@@ -163,33 +183,36 @@ static bool runVirtualExchange(int jetson_fd, uint8_t seq,
 
     while (usNow() < deadline_us) {
         const int remain_ms = static_cast<int>((deadline_us - usNow()) / 1000);
-        const ssize_t n = fd_read_timeout(jetson_fd, rx_buf, 1,
-                                          remain_ms > 0 ? remain_ms : 1);
+        const ssize_t n = fd_read_timeout(jetson_fd, rx_buf, 1, remain_ms > 0 ? remain_ms : 1);
         if (n <= 0) break;
 
-        if (arm_uart_parser_feed(&parser, rx_buf[0])) {
-            arm_actual_state_t actual {};
-            uint8_t rseq = 0;
-            if (arm_uart_decode_actual_state_packet(parser.bytes, parser.frame_length, &actual, &rseq)) {
-                if (!got_response) {
-                    const int64_t latency = usNow() - t0;
-                    stats.recordLatency(latency);
-                    ++stats.received;
-                    got_response = true;
-                    if (verbose) {
-                        printf("  seq=%3d  latency=%lldus  angles[0]=%.2f\n",
-                               (int)rseq, (long long)latency, actual.actual_joint_angles[0]);
-                    }
-                } else {
-                    ++stats.duplicates;
-                }
-            } else {
-                ++stats.corrupt;
-            }
+        if (!arm_uart_parser_feed(&parser, rx_buf[0])) continue;
+
+        arm_actual_state_t actual {};
+        uint8_t rseq = 0;
+        if (!arm_uart_decode_actual_state_packet(parser.bytes, parser.frame_length, &actual, &rseq)) {
+            ++stats.corrupt;
+            printExchangeCorrupt(seq);
+            continue;
+        }
+
+        if (!got_response) {
+            const int64_t latency = usNow() - t0;
+            stats.recordLatency(latency);
+            ++stats.received;
+            got_response = true;
+            printAngles("RECV", actual.actual_joint_angles, ARM_UART_JOINT_COUNT);
+            printExchangeOk(rseq, latency);
+        } else {
+            ++stats.duplicates;
+            printExchangeDuplicate(rseq);
         }
     }
 
-    if (!got_response) ++stats.timeouts;
+    if (!got_response) {
+        ++stats.timeouts;
+        printExchangeTimeout(seq);
+    }
     return got_response;
 }
 
@@ -210,12 +233,11 @@ static bool runNormalTest(const Config& cfg)
 
     float angles[ARM_UART_JOINT_COUNT];
     for (int i = 0; i < cfg.iterations; ++i) {
-        for (size_t j = 0; j < ARM_UART_JOINT_COUNT; ++j) {
+        for (size_t j = 0; j < ARM_UART_JOINT_COUNT; ++j)
             angles[j] = static_cast<float>(i) + static_cast<float>(j) * 10.0f;
-        }
+        printf("\n  --- exchange %d/%d ---\n", i + 1, cfg.iterations);
         runVirtualExchange(pair.jetsonFd(), static_cast<uint8_t>(i & 0xFF),
-                           angles, stats, cfg.timeout_ms, cfg.verbose);
-        printProgress(i + 1, cfg.iterations, "");
+                           angles, stats, cfg.timeout_ms);
     }
 
     sim.join();
@@ -244,9 +266,9 @@ static bool runDropsTest(const Config& cfg)
     float angles[ARM_UART_JOINT_COUNT] = {};
     for (int i = 0; i < cfg.iterations; ++i) {
         angles[0] = static_cast<float>(i);
+        printf("\n  --- exchange %d/%d ---\n", i + 1, cfg.iterations);
         runVirtualExchange(pair.jetsonFd(), static_cast<uint8_t>(i & 0xFF),
-                           angles, stats, cfg.timeout_ms, cfg.verbose);
-        printProgress(i + 1, cfg.iterations, "");
+                           angles, stats, cfg.timeout_ms);
     }
 
     sim.join();
@@ -258,7 +280,7 @@ static bool runDropsTest(const Config& cfg)
                          actual_drops <= expected_drops + 2 &&
                          stats.corrupt == 0);
     printResult("Drop simulation", passed);
-    printf("  (expected ~%d drops, got %d)\n", expected_drops, actual_drops);
+    printf("  expected ~%d drops, got %d\n", expected_drops, actual_drops);
     return passed;
 }
 
@@ -279,9 +301,9 @@ static bool runDuplicatesTest(const Config& cfg)
     float angles[ARM_UART_JOINT_COUNT] = {};
     for (int i = 0; i < cfg.iterations; ++i) {
         angles[0] = static_cast<float>(i * 2);
+        printf("\n  --- exchange %d/%d ---\n", i + 1, cfg.iterations);
         runVirtualExchange(pair.jetsonFd(), static_cast<uint8_t>(i & 0xFF),
-                           angles, stats, cfg.timeout_ms, cfg.verbose);
-        printProgress(i + 1, cfg.iterations, "");
+                           angles, stats, cfg.timeout_ms);
     }
 
     sim.join();
@@ -289,9 +311,9 @@ static bool runDuplicatesTest(const Config& cfg)
 
     const bool passed = (stats.received == cfg.iterations &&
                          stats.corrupt  == 0 &&
-                         stats.duplicates >= cfg.iterations - 5); // tolerate 5 missed dups
+                         stats.duplicates >= cfg.iterations - 5);
     printResult("Duplicate injection", passed);
-    printf("  (all %d packets received; %d duplicates detected)\n",
+    printf("  %d packets received, %d duplicates detected\n",
            stats.received, stats.duplicates);
     return passed;
 }
@@ -302,50 +324,65 @@ static bool runHardwareNormalTest(const Config& cfg)
 {
 #ifdef INTEGRATION_TEST_USE_HARDWARE
     printSection("HARDWARE NORMAL: direct UART exchange with STM32");
-    printf("  device=%s  baud=%d  iterations=%d\n",
-           cfg.device.c_str(), cfg.baud, cfg.iterations);
+    printf("  Opening %s at %d baud...\n", cfg.device.c_str(), cfg.baud);
 
     UartDriver driver;
     std::string err;
     if (!driver.openPort(cfg.device, cfg.baud, &err)) {
         printf("  SKIP: cannot open %s: %s\n", cfg.device.c_str(), err.c_str());
-        return true; // skip counts as pass in hardware mode (device may not be attached)
+        return true;
     }
+    printf("  Connected.\n\n");
 
     TestStats stats;
     for (int i = 0; i < cfg.iterations; ++i) {
         arm_desired_state_t desired {};
-        for (size_t j = 0; j < ARM_UART_JOINT_COUNT; ++j) {
+        for (size_t j = 0; j < ARM_UART_JOINT_COUNT; ++j)
             desired.desired_joint_angles[j] = static_cast<float>(i * ARM_UART_JOINT_COUNT + j);
-        }
+
+        printAngles("  SEND", desired.desired_joint_angles, ARM_UART_JOINT_COUNT);
+
         uint8_t frame[ARM_UART_MAX_FRAME_SIZE];
-        const size_t len = arm_uart_build_desired_state_packet(&desired,
-                                                               static_cast<uint8_t>(i & 0xFF),
-                                                               frame, sizeof(frame));
+        const size_t len = arm_uart_build_desired_state_packet(
+            &desired, static_cast<uint8_t>(i & 0xFF), frame, sizeof(frame));
+
         ++stats.sent;
         const int64_t t0 = usNow();
-        if (!driver.writeAll(frame, len, &err)) { ++stats.timeouts; continue; }
+        if (!driver.writeAll(frame, len, &err)) {
+            printf("  seq=%3d  WRITE ERROR: %s\n", i, err.c_str());
+            ++stats.timeouts;
+            continue;
+        }
 
         arm_uart_parser_t parser;
         arm_uart_parser_init(&parser);
         const int64_t deadline = t0 + static_cast<int64_t>(cfg.timeout_ms) * 1000;
         bool got = false;
         uint8_t rx;
+
         while (usNow() < deadline) {
             const ssize_t n = driver.readBytes(&rx, 1, 10, &err);
             if (n <= 0) continue;
-            if (arm_uart_parser_feed(&parser, rx)) {
-                arm_actual_state_t actual {};
-                if (arm_uart_decode_actual_state_packet(parser.bytes, parser.frame_length, &actual, nullptr)) {
-                    stats.recordLatency(usNow() - t0);
-                    ++stats.received;
-                    got = true;
-                    break;
-                }
-            }
+            if (!arm_uart_parser_feed(&parser, rx)) continue;
+
+            arm_actual_state_t actual {};
+            uint8_t rseq = 0;
+            if (!arm_uart_decode_actual_state_packet(parser.bytes, parser.frame_length, &actual, &rseq))
+                continue;
+
+            const int64_t latency = usNow() - t0;
+            stats.recordLatency(latency);
+            ++stats.received;
+            got = true;
+            printAngles("  RECV", actual.actual_joint_angles, ARM_UART_JOINT_COUNT);
+            printExchangeOk(rseq, latency);
+            break;
         }
-        if (!got) ++stats.timeouts;
-        printProgress(i + 1, cfg.iterations, "");
+        if (!got) {
+            ++stats.timeouts;
+            printExchangeTimeout(static_cast<uint8_t>(i & 0xFF));
+        }
+        printf("\n");
     }
 
     stats.print("Hardware normal");
@@ -366,18 +403,18 @@ int main(int argc, char** argv)
     const Config cfg = parseArgs(argc, argv);
 
     printBanner("UART INTEGRATION TEST  (STM32 <-> Jetson)");
-    printf("  mode=%s  iterations=%d  timeout=%dms  drop-every=%d\n",
+    printf("  mode=%s  device=%s  baud=%d  iterations=%d  timeout=%dms\n",
            cfg.use_hardware ? "hardware" : "virtual",
-           cfg.iterations, cfg.timeout_ms, cfg.drop_every);
+           cfg.device.c_str(), cfg.baud, cfg.iterations, cfg.timeout_ms);
 
     std::vector<std::pair<std::string, bool>> results;
 
     if (cfg.use_hardware) {
         results.push_back({"Hardware normal", runHardwareNormalTest(cfg)});
     } else {
-        if (cfg.run_normal)     results.push_back({"Normal exchange",    runNormalTest(cfg)});
-        if (cfg.run_drops)      results.push_back({"Drop simulation",    runDropsTest(cfg)});
-        if (cfg.run_duplicates) results.push_back({"Duplicate injection",runDuplicatesTest(cfg)});
+        if (cfg.run_normal)     results.push_back({"Normal exchange",     runNormalTest(cfg)});
+        if (cfg.run_drops)      results.push_back({"Drop simulation",     runDropsTest(cfg)});
+        if (cfg.run_duplicates) results.push_back({"Duplicate injection", runDuplicatesTest(cfg)});
     }
 
     printBanner("SUMMARY");

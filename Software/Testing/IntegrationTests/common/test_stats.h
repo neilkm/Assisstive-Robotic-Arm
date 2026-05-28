@@ -7,14 +7,16 @@
 #include <numeric>
 #include <vector>
 
-using Clock = std::chrono::steady_clock;
+using Clock     = std::chrono::steady_clock;
 using TimePoint = std::chrono::time_point<Clock>;
-using Micros = std::chrono::microseconds;
+using Micros    = std::chrono::microseconds;
 
 inline int64_t usNow()
 {
     return std::chrono::duration_cast<Micros>(Clock::now().time_since_epoch()).count();
 }
+
+// ─── Stats accumulator ────────────────────────────────────────────────────────
 
 struct TestStats {
     int sent       = 0;
@@ -61,22 +63,21 @@ struct TestStats {
         return 100.0f * static_cast<float>(sent - received) / static_cast<float>(sent);
     }
 
-    void print(const char* label) const
+    void print(const char* /*label*/) const
     {
         printf("\n");
-        printf("  %-20s | %6d\n", "Sent",      sent);
-        printf("  %-20s | %6d\n", "Received",  received);
-        printf("  %-20s | %6d\n", "Timeouts",  timeouts);
-        printf("  %-20s | %6d\n", "Corrupt",   corrupt);
-        printf("  %-20s | %6d\n", "Duplicates",duplicates);
-        printf("  %-20s | %5.1f%%\n", "Packet loss",  packetLossPct());
+        printf("  %-20s | %6d\n",  "Sent",       sent);
+        printf("  %-20s | %6d\n",  "Received",   received);
+        printf("  %-20s | %6d\n",  "Timeouts",   timeouts);
+        printf("  %-20s | %6d\n",  "Corrupt",    corrupt);
+        printf("  %-20s | %6d\n",  "Duplicates", duplicates);
+        printf("  %-20s | %5.1f%%\n", "Packet loss", packetLossPct());
         if (!latencies_us.empty()) {
             printf("  %-20s | %6lld us\n", "Latency min",  (long long)minUs());
             printf("  %-20s | %6lld us\n", "Latency mean", (long long)meanUs());
             printf("  %-20s | %6lld us\n", "Latency p95",  (long long)percentileUs(95));
             printf("  %-20s | %6lld us\n", "Latency max",  (long long)maxUs());
         }
-        (void)label;
     }
 };
 
@@ -103,16 +104,6 @@ inline void printSection(const char* title)
     printf("\n  %s\n", title);
     for (int i = 0; i < W; ++i) printf("-");
     printf("\n");
-}
-
-inline void printProgress(int current, int total, const char* label = "")
-{
-    constexpr int BAR_W = 30;
-    const int filled = (total > 0) ? (current * BAR_W / total) : 0;
-    printf("\r  [");
-    for (int i = 0; i < BAR_W; ++i) printf(i < filled ? "#" : ".");
-    printf("] %3d/%3d  %s    ", current, total, label);
-    fflush(stdout);
 }
 
 inline void printResult(const char* label, bool passed)
