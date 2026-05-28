@@ -2,33 +2,33 @@
 #include <stdint.h>
 
 #include "stm32f4xx_hal.h"
+#include "stm32_uart_port.h"
 #include "test_format.h"
-#include "UART_common.h"
 
 #define LINE_BUFFER_SIZE 96u
 #define PROMPT_PERIOD_MS 2000u
 
-static void uart_write_char_blocking(char character)
+static void uart_write_char(char character)
 {
-    while (uart_put_char((uint8_t)character, UART_TIMEOUT_NONE) != UART_OK) {
-        HAL_Delay(1u);
+    while (stm32_uart_port_tx_ready() == 0u) {
     }
+    stm32_uart_port_write_tx_byte((uint8_t)character);
 }
 
 static void uart_format_writer(char character, void *context)
 {
     (void)context;
-    uart_write_char_blocking(character);
+    uart_write_char(character);
 }
 
-static void uart_write_string_blocking(const char *string)
+static void uart_write_string(const char *string)
 {
     if (string == NULL) {
         return;
     }
 
     while (*string != '\0') {
-        uart_write_char_blocking(*string);
+        uart_write_char(*string);
         string++;
     }
 }
@@ -40,14 +40,14 @@ static void print_intro_message(void)
 
 static void print_prompt(void)
 {
-    uart_write_string_blocking("\n> ");
+    uart_write_string("\n> ");
 }
 
 static void echo_line(const char *line)
 {
-    uart_write_string_blocking("\nReceived: [");
-    uart_write_string_blocking(line);
-    uart_write_string_blocking("]\n");
+    uart_write_string("\nReceived: [");
+    uart_write_string(line);
+    uart_write_string("]\n");
 }
 
 int main(void)
@@ -57,7 +57,7 @@ int main(void)
     uint32_t last_prompt_ms = 0u;
 
     HAL_Init();
-    uart_init();
+    stm32_uart_port_configure_polling();
 
     print_intro_message();
     print_prompt();
@@ -72,9 +72,10 @@ int main(void)
             last_prompt_ms = now_ms;
         }
 
-        if (uart_get_char(&byte, UART_TIMEOUT_NONE) != UART_OK) {
+        if (stm32_uart_port_rx_ready() == 0u) {
             continue;
         }
+        byte = stm32_uart_port_read_rx_byte();
 
         if ((byte == '\r') || (byte == '\n')) {
             if (line_length > 0u) {
