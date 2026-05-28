@@ -101,7 +101,7 @@ else()
     # UART — real STM32 over /dev/ttyACM0
     add_test(NAME uart_hw_normal
         COMMAND uart_integration_test --mode=hardware
-            --device=${INTEGRATION_TEST_UART_DEVICE} --test=normal --iterations=20)
+            --device=${INTEGRATION_TEST_UART_DEVICE} --test=normal --iterations=50)
     add_test(NAME uart_hw_drops
         COMMAND uart_integration_test --mode=hardware
             --device=${INTEGRATION_TEST_UART_DEVICE} --test=drops --iterations=20 --drop-every=5)
