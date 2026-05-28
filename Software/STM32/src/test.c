@@ -53,12 +53,25 @@ static void ActualState_AdvanceForTest(uint8_t sequence)
     __enable_irq();
 }
 
+static void ProtocolStatusLed_Init(void)
+{
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+
+    GPIO_InitTypeDef gpio = {0};
+    gpio.Pin = GPIO_PIN_5;
+    gpio.Mode = GPIO_MODE_OUTPUT_PP;
+    gpio.Pull = GPIO_NOPULL;
+    gpio.Speed = GPIO_SPEED_FREQ_LOW;
+    HAL_GPIO_Init(GPIOA, &gpio);
+}
+
 int main(void)
 {
     HAL_Init();
     SystemClock_Config();
 
     UART_Init(115200);
+    ProtocolStatusLed_Init();
     ActualState_Init();
 
     arm_uart_parser_t parser;
@@ -95,6 +108,7 @@ int main(void)
                                                                      sizeof(tx_frame));
             if (tx_len > 0u) {
                 UART_Write(tx_frame, tx_len);
+                HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
                 tx_sequence++;
             }
         }

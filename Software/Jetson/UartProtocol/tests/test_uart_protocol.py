@@ -26,6 +26,7 @@ def main():
     parser.add_argument("--period-ms", default="100", help="Delay between Jetson desired-state packets")
     parser.add_argument("--upload-port", default=None, help="Optional PlatformIO STM32 upload port")
     parser.add_argument("--skip-flash", action="store_true", help="Do not flash the STM32 before running")
+    parser.add_argument("--rx-hex", action="store_true", help="Print raw RX bytes seen by the Jetson app")
     args = parser.parse_args()
 
     BUILD_DIR.mkdir(parents=True, exist_ok=True)
@@ -39,7 +40,7 @@ def main():
         run(flash_command, cwd=STM32_DIR)
 
     app = BUILD_DIR / "jetson_uart_protocol"
-    run([
+    app_command = [
         str(app),
         "--device",
         args.device,
@@ -49,7 +50,10 @@ def main():
         args.iterations,
         "--period-ms",
         args.period_ms,
-    ])
+    ]
+    if args.rx_hex:
+        app_command.append("--rx-hex")
+    run(app_command)
 
 
 if __name__ == "__main__":
