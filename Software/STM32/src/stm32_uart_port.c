@@ -1,6 +1,7 @@
 #include "stm32f4xx_hal.h"
 
 #include "stm32_uart_port.h"
+#include "UART_common.h"
 
 #define UART_BAUD_RATE 115200u
 #define UART_GPIO_AF GPIO_AF7_USART2
@@ -11,6 +12,90 @@
 #define UART_IRQ USART2_IRQn
 
 static uint32_t uart_critical_primask;
+static volatile uint16_t uart_rx_sem_count;
+static volatile uint16_t uart_tx_sem_count;
+
+static void stm32_uart_port_sem_init(volatile uint16_t *sem_count, uint16_t initial_count)
+{
+    uint32_t primask = __get_PRIMASK();
+
+    __disable_irq();
+    *sem_count = initial_count;
+    if (primask == 0u) {
+        __enable_irq();
+    }
+}
+
+static uart_status_t stm32_uart_port_sem_wait(volatile uint16_t *sem_count,
+                                              uint32_t timeout_ticks)
+{
+    const uint32_t start_tick = HAL_GetTick();
+
+    for (;;) {
+        uint32_t primask = __get_PRIMASK();
+
+        __disable_irq();
+        if (*sem_count > 0u) {
+            (*sem_count)--;
+            if (primask == 0u) {
+                __enable_irq();
+            }
+            return UART_OK;
+        }
+        if (primask == 0u) {
+            __enable_irq();
+        }
+
+        if (timeout_ticks == UART_TIMEOUT_NONE) {
+            return UART_ERR_TIMEOUT;
+        }
+
+        if (timeout_ticks != UART_TIMEOUT_FOREVER) {
+            const uint32_t elapsed_ticks = HAL_GetTick() - start_tick;
+            if (elapsed_ticks >= timeout_ticks) {
+                return UART_ERR_TIMEOUT;
+            }
+        }
+    }
+}
+
+static void stm32_uart_port_sem_signal_from_isr(volatile uint16_t *sem_count,
+                                                uint16_t max_count)
+{
+    if (*sem_count < max_count) {
+        (*sem_count)++;
+    }
+}
+
+static void stm32_uart_port_rx_sem_init(uint16_t initial_count)
+{
+    stm32_uart_port_sem_init(&uart_rx_sem_count, initial_count);
+}
+
+static void stm32_uart_port_tx_sem_init(uint16_t initial_count)
+{
+    stm32_uart_port_sem_init(&uart_tx_sem_count, initial_count);
+}
+
+static uart_status_t stm32_uart_port_rx_sem_wait(uint32_t timeout_ticks)
+{
+    return stm32_uart_port_sem_wait(&uart_rx_sem_count, timeout_ticks);
+}
+
+static uart_status_t stm32_uart_port_tx_sem_wait(uint32_t timeout_ticks)
+{
+    return stm32_uart_port_sem_wait(&uart_tx_sem_count, timeout_ticks);
+}
+
+static void stm32_uart_port_rx_sem_signal_from_isr(void)
+{
+    stm32_uart_port_sem_signal_from_isr(&uart_rx_sem_count, UART_RX_BUF_SIZE);
+}
+
+static void stm32_uart_port_tx_sem_signal_from_isr(void)
+{
+    stm32_uart_port_sem_signal_from_isr(&uart_tx_sem_count, UART_TX_BUF_SIZE);
+}
 
 void stm32_uart_port_configure(void)
 {
@@ -74,6 +159,12 @@ void stm32_uart_port_exit_critical(void)
 #define UART_WRITE_TX_BYTE(byte_) stm32_uart_port_write_tx_byte((byte_))
 #define UART_ENABLE_TX_INTERRUPT() stm32_uart_port_enable_tx_interrupt()
 #define UART_DISABLE_TX_INTERRUPT() stm32_uart_port_disable_tx_interrupt()
+#define UART_RX_SEM_INIT(initial_count_) stm32_uart_port_rx_sem_init((uint16_t)(initial_count_))
+#define UART_TX_SEM_INIT(initial_count_) stm32_uart_port_tx_sem_init((uint16_t)(initial_count_))
+#define UART_RX_SEM_WAIT(timeout_ticks_) stm32_uart_port_rx_sem_wait((timeout_ticks_))
+#define UART_TX_SEM_WAIT(timeout_ticks_) stm32_uart_port_tx_sem_wait((timeout_ticks_))
+#define UART_RX_SEM_SIGNAL_FROM_ISR() stm32_uart_port_rx_sem_signal_from_isr()
+#define UART_TX_SEM_SIGNAL_FROM_ISR() stm32_uart_port_tx_sem_signal_from_isr()
 #define UART_ENTER_CRITICAL() stm32_uart_port_enter_critical()
 #define UART_EXIT_CRITICAL() stm32_uart_port_exit_critical()
 
