@@ -1,199 +1,283 @@
 #include "uart.h"
+#include <string.h>
 
-#include "stm32f4xx_hal.h"
+static UART_HandleTypeDef huart2;
 
-#define UART_BAUD_RATE 115200u
-#define UART_GPIO_AF GPIO_AF7_USART2
-#define UART_TX_PIN GPIO_PIN_2
-#define UART_RX_PIN GPIO_PIN_3
-#define UART_GPIO_PORT GPIOA
-#define UART_INSTANCE USART2
-#define UART_IRQ USART2_IRQn
+/* RX circular buffer */
+static volatile uint8_t rx_buffer[UART_RX_BUFFER_SIZE];
+static volatile uint16_t rx_head = 0;
+static volatile uint16_t rx_tail = 0;
+static volatile uint16_t rx_count = 0;
 
-typedef struct {
-    uint8_t data[UART_RX_BUFFER_SIZE];
-    volatile uint16_t head;
-    volatile uint16_t tail;
-    volatile uint16_t count;
-} uart_rx_ring_t;
+/* TX circular buffer */
+static volatile uint8_t tx_buffer[UART_TX_BUFFER_SIZE];
+static volatile uint16_t tx_head = 0;
+static volatile uint16_t tx_tail = 0;
+static volatile uint16_t tx_count = 0;
 
-typedef struct {
-    uint8_t data[UART_TX_BUFFER_SIZE];
-    volatile uint16_t head;
-    volatile uint16_t tail;
-    volatile uint16_t count;
-} uart_tx_ring_t;
+/* Line assembly buffer used by UART_ReadLine() */
+static char line_buffer[UART_LINE_BUFFER_SIZE];
+static uint16_t line_index = 0;
 
-static uart_rx_ring_t uart_rx_ring;
-static uart_tx_ring_t uart_tx_ring;
-
-static void uart_enter_critical(uint32_t *primask)
-{
-    *primask = __get_PRIMASK();
-    __disable_irq();
-}
-
-static void uart_exit_critical(uint32_t primask)
-{
-    if (primask == 0u) {
-        __enable_irq();
-    }
-}
-
-static uint16_t uart_advance_index(uint16_t index, uint16_t size)
+static uint16_t next_index(uint16_t index, uint16_t size)
 {
     index++;
     if (index >= size) {
-        index = 0u;
+        index = 0;
     }
-
     return index;
 }
 
-static void uart_reset_buffers(void)
+static void UART_GPIO_Init(void)
 {
-    uint32_t primask;
-
-    uart_enter_critical(&primask);
-    uart_rx_ring.head = 0u;
-    uart_rx_ring.tail = 0u;
-    uart_rx_ring.count = 0u;
-
-    uart_tx_ring.head = 0u;
-    uart_tx_ring.tail = 0u;
-    uart_tx_ring.count = 0u;
-    uart_exit_critical(primask);
-}
-
-static void uart_start_tx_locked(void)
-{
-    if ((uart_tx_ring.count == 0u) || ((UART_INSTANCE->SR & USART_SR_TXE) == 0u)) {
-        UART_INSTANCE->CR1 |= USART_CR1_TXEIE;
-        return;
-    }
-
-    UART_INSTANCE->DR = uart_tx_ring.data[uart_tx_ring.tail];
-    uart_tx_ring.tail = uart_advance_index(uart_tx_ring.tail, UART_TX_BUFFER_SIZE);
-    uart_tx_ring.count--;
-
-    if (uart_tx_ring.count > 0u) {
-        UART_INSTANCE->CR1 |= USART_CR1_TXEIE;
-    } else {
-        UART_INSTANCE->CR1 &= ~USART_CR1_TXEIE;
-    }
-}
-
-void uart_init(void)
-{
-    GPIO_InitTypeDef gpio_init = {0};
-
     __HAL_RCC_GPIOA_CLK_ENABLE();
     __HAL_RCC_USART2_CLK_ENABLE();
 
-    gpio_init.Pin = UART_TX_PIN | UART_RX_PIN;
-    gpio_init.Mode = GPIO_MODE_AF_PP;
-    gpio_init.Pull = GPIO_PULLUP;
-    gpio_init.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-    gpio_init.Alternate = UART_GPIO_AF;
-    HAL_GPIO_Init(UART_GPIO_PORT, &gpio_init);
+    GPIO_InitTypeDef gpio = {0};
 
-    UART_INSTANCE->CR1 = 0u;
-    UART_INSTANCE->CR2 = 0u;
-    UART_INSTANCE->CR3 = 0u;
-    UART_INSTANCE->BRR = HAL_RCC_GetPCLK1Freq() / UART_BAUD_RATE;
-    UART_INSTANCE->CR1 = USART_CR1_TE | USART_CR1_RE | USART_CR1_RXNEIE | USART_CR1_UE;
+    /*
+     * Nucleo-F446RE virtual COM port:
+     *
+     * PA2 = USART2_TX
+     * PA3 = USART2_RX
+     */
+    gpio.Pin = GPIO_PIN_2 | GPIO_PIN_3;
+    gpio.Mode = GPIO_MODE_AF_PP;
+    gpio.Pull = GPIO_PULLUP;
+    gpio.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+    gpio.Alternate = GPIO_AF7_USART2;
 
-    uart_reset_buffers();
-
-    HAL_NVIC_SetPriority(UART_IRQ, 5u, 0u);
-    HAL_NVIC_EnableIRQ(UART_IRQ);
+    HAL_GPIO_Init(GPIOA, &gpio);
 }
 
-void uart_write_byte(uint8_t byte)
+void UART_Init(uint32_t baudrate)
 {
-    for (;;) {
-        uint32_t primask;
-        uint8_t queued = 0u;
+    UART_GPIO_Init();
 
-        uart_enter_critical(&primask);
-        if (uart_tx_ring.count < UART_TX_BUFFER_SIZE) {
-            uart_tx_ring.data[uart_tx_ring.head] = byte;
-            uart_tx_ring.head = uart_advance_index(uart_tx_ring.head, UART_TX_BUFFER_SIZE);
-            uart_tx_ring.count++;
-            uart_start_tx_locked();
-            queued = 1u;
+    huart2.Instance = USART2;
+    huart2.Init.BaudRate = baudrate;
+    huart2.Init.WordLength = UART_WORDLENGTH_8B;
+    huart2.Init.StopBits = UART_STOPBITS_1;
+    huart2.Init.Parity = UART_PARITY_NONE;
+    huart2.Init.Mode = UART_MODE_TX_RX;
+    huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+    huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+
+    if (HAL_UART_Init(&huart2) != HAL_OK) {
+        while (1) {
+            /*
+             * UART initialization failed.
+             */
         }
-        uart_exit_critical(primask);
+    }
 
-        if (queued != 0u) {
-            return;
+    __disable_irq();
+
+    rx_head = 0;
+    rx_tail = 0;
+    rx_count = 0;
+
+    tx_head = 0;
+    tx_tail = 0;
+    tx_count = 0;
+
+    line_index = 0;
+
+    __enable_irq();
+
+    HAL_NVIC_SetPriority(USART2_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(USART2_IRQn);
+
+    /*
+     * Enable RX interrupt.
+     * TX interrupt is enabled only when there is data to send.
+     */
+    USART2->CR1 |= USART_CR1_RXNEIE;
+}
+
+size_t UART_Write(const uint8_t *data, size_t len)
+{
+    if (data == NULL || len == 0) {
+        return 0;
+    }
+
+    size_t written = 0;
+
+    while (written < len) {
+        /*
+         * Wait until there is space in the TX circular buffer.
+         * This is still interrupt-driven transmission; this only waits
+         * when the software buffer is full.
+         */
+        while (tx_count >= UART_TX_BUFFER_SIZE) {
         }
 
-        HAL_Delay(1u);
+        __disable_irq();
+
+        if (tx_count < UART_TX_BUFFER_SIZE) {
+            tx_buffer[tx_head] = data[written];
+            tx_head = next_index(tx_head, UART_TX_BUFFER_SIZE);
+            tx_count++;
+            written++;
+
+            /*
+             * Enable TXE interrupt.
+             * The ISR will pull bytes from tx_buffer.
+             */
+            USART2->CR1 |= USART_CR1_TXEIE;
+        }
+
+        __enable_irq();
     }
+
+    return written;
 }
 
-void uart_write_string(const char *string)
+size_t UART_WriteString(const char *str)
 {
-    if (string == 0) {
-        return;
+    if (str == NULL) {
+        return 0;
     }
 
-    while (*string != '\0') {
-        uart_write_byte((uint8_t)*string);
-        string++;
-    }
+    return UART_Write((const uint8_t *)str, strlen(str));
 }
 
-uint8_t uart_read_byte_if_ready(uint8_t *byte)
+size_t UART_WriteLine(const char *str)
 {
-    uint32_t primask;
-    uint8_t has_byte = 0u;
+    size_t count = 0;
 
-    if (byte == 0) {
-        return 0u;
+    count += UART_WriteString(str);
+    count += UART_WriteString("\r\n");
+
+    return count;
+}
+
+int UART_ReadByte(uint8_t *byte)
+{
+    if (byte == NULL) {
+        return 0;
     }
 
-    uart_enter_critical(&primask);
-    if (uart_rx_ring.count > 0u) {
-        *byte = uart_rx_ring.data[uart_rx_ring.tail];
-        uart_rx_ring.tail = uart_advance_index(uart_rx_ring.tail, UART_RX_BUFFER_SIZE);
-        uart_rx_ring.count--;
-        has_byte = 1u;
+    if (rx_count == 0) {
+        return 0;
     }
-    uart_exit_critical(primask);
 
-    return has_byte;
+    __disable_irq();
+
+    if (rx_count > 0) {
+        *byte = rx_buffer[rx_tail];
+        rx_tail = next_index(rx_tail, UART_RX_BUFFER_SIZE);
+        rx_count--;
+
+        __enable_irq();
+        return 1;
+    }
+
+    __enable_irq();
+    return 0;
+}
+
+int UART_ReadLine(char *dst, size_t dst_size)
+{
+    if (dst == NULL || dst_size == 0) {
+        return 0;
+    }
+
+    uint8_t byte;
+
+    while (UART_ReadByte(&byte)) {
+        char c = (char)byte;
+
+        if (c == '\r' || c == '\n') {
+            if (line_index > 0) {
+                line_buffer[line_index] = '\0';
+
+                strncpy(dst, line_buffer, dst_size - 1);
+                dst[dst_size - 1] = '\0';
+
+                line_index = 0;
+                return 1;
+            }
+        } else {
+            if (line_index < UART_LINE_BUFFER_SIZE - 1) {
+                line_buffer[line_index++] = c;
+            } else {
+                /*
+                 * If the line gets too long, reset it.
+                 */
+                line_index = 0;
+            }
+        }
+    }
+
+    return 0;
+}
+
+uint16_t UART_RxAvailable(void)
+{
+    return rx_count;
+}
+
+uint16_t UART_TxFree(void)
+{
+    return UART_TX_BUFFER_SIZE - tx_count;
+}
+
+UART_HandleTypeDef *UART_GetHandle(void)
+{
+    return &huart2;
 }
 
 void USART2_IRQHandler(void)
 {
-    const uint32_t status = UART_INSTANCE->SR;
-    const uint32_t control = UART_INSTANCE->CR1;
+    uint32_t sr = USART2->SR;
 
-    if ((status & USART_SR_RXNE) != 0u) {
-        const uint8_t byte = (uint8_t)(UART_INSTANCE->DR & 0xffu);
+    /*
+     * RXNE: received byte available.
+     */
+    if (sr & USART_SR_RXNE) {
+        uint8_t byte = (uint8_t)(USART2->DR & 0xFF);
 
-        if (uart_rx_ring.count < UART_RX_BUFFER_SIZE) {
-            uart_rx_ring.data[uart_rx_ring.head] = byte;
-            uart_rx_ring.head = uart_advance_index(uart_rx_ring.head, UART_RX_BUFFER_SIZE);
-            uart_rx_ring.count++;
+        if (rx_count < UART_RX_BUFFER_SIZE) {
+            rx_buffer[rx_head] = byte;
+            rx_head = next_index(rx_head, UART_RX_BUFFER_SIZE);
+            rx_count++;
+        } else {
+            /*
+             * RX buffer full.
+             * Byte is dropped.
+             */
         }
     }
 
-    if ((status & (USART_SR_ORE | USART_SR_FE | USART_SR_NE)) != 0u) {
-        (void)UART_INSTANCE->DR;
+    /*
+     * ORE/FE/NE/PE error handling.
+     * Reading SR then DR clears these error flags on STM32F4.
+     */
+    if (sr & (USART_SR_ORE | USART_SR_FE | USART_SR_NE | USART_SR_PE)) {
+        volatile uint32_t tmp;
+
+        tmp = USART2->SR;
+        tmp = USART2->DR;
+
+        (void)tmp;
     }
 
-    if (((status & USART_SR_TXE) != 0u) && ((control & USART_CR1_TXEIE) != 0u)) {
-        if (uart_tx_ring.count > 0u) {
-            const uint8_t byte = uart_tx_ring.data[uart_tx_ring.tail];
-
-            uart_tx_ring.tail = uart_advance_index(uart_tx_ring.tail, UART_TX_BUFFER_SIZE);
-            uart_tx_ring.count--;
-            UART_INSTANCE->DR = byte;
+    /*
+     * TXE: transmit data register empty.
+     * Load next byte from TX circular buffer.
+     */
+    if ((sr & USART_SR_TXE) && (USART2->CR1 & USART_CR1_TXEIE)) {
+        if (tx_count > 0) {
+            USART2->DR = tx_buffer[tx_tail];
+            tx_tail = next_index(tx_tail, UART_TX_BUFFER_SIZE);
+            tx_count--;
         } else {
-            UART_INSTANCE->CR1 &= ~USART_CR1_TXEIE;
+            /*
+             * Nothing left to send.
+             * Disable TXE interrupt until UART_Write() queues more data.
+             */
+            USART2->CR1 &= ~USART_CR1_TXEIE;
         }
     }
 }
