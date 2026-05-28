@@ -76,7 +76,7 @@ TEST_F(CookingStateMachine, SelectPreviousWrapsAround)
 
 TEST_F(CookingStateMachine, TriggerOnEmptyActionsReturnsFalse)
 {
-    StateMachine sm2({{"Idle", {}}});
+    StateMachine sm2(std::vector<StateDefinition>{{"Idle", {}}});
     EXPECT_FALSE(sm2.triggerSelectedAction());
 }
 
