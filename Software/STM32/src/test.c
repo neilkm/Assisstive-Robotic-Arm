@@ -5,7 +5,6 @@
 #include "uart.h"
 
 #define LINE_BUFFER_SIZE 192u
-#define STATUS_PERIOD_MS 1000u
 
 static void print_intro(void)
 {
@@ -35,32 +34,27 @@ int main(void)
 {
     char line_buffer[LINE_BUFFER_SIZE];
     size_t line_length = 0u;
-    uint32_t last_status_ms = 0u;
 
     HAL_Init();
     uart_init();
 
     print_intro();
-    last_status_ms = HAL_GetTick();
 
     for (;;) {
         uint8_t byte = 0u;
-        const uint32_t now_ms = HAL_GetTick();
-
-        if ((now_ms - last_status_ms) >= STATUS_PERIOD_MS) {
-            print_prompt();
-            last_status_ms = now_ms;
-        }
 
         if (uart_read_byte_if_ready(&byte) == 0u) {
             continue;
         }
+
+        uart_write_string("\r\nRX\r\n");
 
         if ((byte == '\r') || (byte == '\n')) {
             if (line_length > 0u) {
                 line_buffer[line_length] = '\0';
                 echo_line(line_buffer);
                 line_length = 0u;
+                print_prompt();
             }
             continue;
         }
@@ -72,6 +66,7 @@ int main(void)
             line_buffer[line_length] = '\0';
             echo_line(line_buffer);
             line_length = 0u;
+            print_prompt();
         }
     }
 }
