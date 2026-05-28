@@ -12,7 +12,7 @@
 
 static uint32_t uart_critical_primask;
 
-static void stm32_uart_port_configure_impl(uint8_t rx_interrupt_enabled)
+void stm32_uart_port_configure(void)
 {
     GPIO_InitTypeDef gpio_init = {0};
 
@@ -30,50 +30,10 @@ static void stm32_uart_port_configure_impl(uint8_t rx_interrupt_enabled)
     UART_INSTANCE->CR2 = 0u;
     UART_INSTANCE->CR3 = 0u;
     UART_INSTANCE->BRR = HAL_RCC_GetPCLK1Freq() / UART_BAUD_RATE;
-    UART_INSTANCE->CR1 = USART_CR1_TE | USART_CR1_RE | USART_CR1_UE;
-    if (rx_interrupt_enabled != 0u) {
-        UART_INSTANCE->CR1 |= USART_CR1_RXNEIE;
-    }
+    UART_INSTANCE->CR1 = USART_CR1_TE | USART_CR1_RE | USART_CR1_RXNEIE | USART_CR1_UE;
 
     HAL_NVIC_SetPriority(UART_IRQ, 5u, 0u);
-    if (rx_interrupt_enabled != 0u) {
-        HAL_NVIC_EnableIRQ(UART_IRQ);
-    } else {
-        HAL_NVIC_DisableIRQ(UART_IRQ);
-    }
-}
-
-void stm32_uart_port_configure(void)
-{
-    stm32_uart_port_configure_impl(1u);
-}
-
-void stm32_uart_port_configure_polling(void)
-{
-    stm32_uart_port_configure_impl(0u);
-}
-
-uint8_t stm32_uart_port_read_rx_byte_if_ready(uint8_t *byte)
-{
-    if ((UART_INSTANCE->SR & USART_SR_RXNE) == 0u) {
-        return 0u;
-    }
-
-    if (byte != 0) {
-        *byte = stm32_uart_port_read_rx_byte();
-    } else {
-        (void)stm32_uart_port_read_rx_byte();
-    }
-    return 1u;
-}
-
-void stm32_uart_port_write_tx_byte_blocking(uint8_t byte)
-{
-    while ((UART_INSTANCE->SR & USART_SR_TXE) == 0u) {
-    }
-    stm32_uart_port_write_tx_byte(byte);
-    while ((UART_INSTANCE->SR & USART_SR_TC) == 0u) {
-    }
+    HAL_NVIC_EnableIRQ(UART_IRQ);
 }
 
 uint8_t stm32_uart_port_read_rx_byte(void)

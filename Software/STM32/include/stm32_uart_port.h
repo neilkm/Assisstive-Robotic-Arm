@@ -4,9 +4,6 @@
 #include <stdint.h>
 
 void stm32_uart_port_configure(void);
-void stm32_uart_port_configure_polling(void);
-uint8_t stm32_uart_port_read_rx_byte_if_ready(uint8_t *byte);
-void stm32_uart_port_write_tx_byte_blocking(uint8_t byte);
 uint8_t stm32_uart_port_read_rx_byte(void);
 void stm32_uart_port_write_tx_byte(uint8_t byte);
 void stm32_uart_port_enable_tx_interrupt(void);
