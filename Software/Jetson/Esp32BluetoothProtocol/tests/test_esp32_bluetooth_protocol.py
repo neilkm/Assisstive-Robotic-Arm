@@ -3,6 +3,7 @@
 import argparse
 import re
 import subprocess
+import sys
 from pathlib import Path
 
 
@@ -24,10 +25,23 @@ def print_section(title):
 
 def run(command, cwd=None, capture=False):
     print(f"+ {' '.join(str(part) for part in command)}")
-    if capture:
-        return subprocess.run(command, cwd=cwd, check=True, text=True, capture_output=True)
-    subprocess.run(command, cwd=cwd, check=True)
-    return None
+    try:
+        if capture:
+            return subprocess.run(command, cwd=cwd, check=True, text=True, capture_output=True)
+        subprocess.run(command, cwd=cwd, check=True)
+        return None
+    except subprocess.CalledProcessError as exc:
+        print()
+        print(f"Command failed with exit code {exc.returncode}: {' '.join(str(part) for part in command)}")
+        if exc.stdout:
+            print()
+            print("stdout:")
+            print(exc.stdout, end="" if exc.stdout.endswith("\n") else "\n")
+        if exc.stderr:
+            print()
+            print("stderr:")
+            print(exc.stderr, end="" if exc.stderr.endswith("\n") else "\n")
+        sys.exit(exc.returncode)
 
 
 def print_listener_summary(output):
@@ -114,7 +128,7 @@ def main():
 
     if not args.skip_pair:
         print_section("Pair And Bind ESP32 Bluetooth")
-        run([str(JETSON_PROTOCOL_DIR / "scripts" / "pair_esp32_bluetooth.sh")])
+        run([str(JETSON_PROTOCOL_DIR / "scripts" / "pair_esp32_bluetooth.sh")], capture=False)
     else:
         print_section("Skip Bluetooth Pair/Bind")
         print(f"Using existing RFCOMM device at {args.device}.")
