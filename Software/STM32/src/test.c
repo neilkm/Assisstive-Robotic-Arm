@@ -1,7 +1,109 @@
 #include "stm32f4xx_hal.h"
+#include "packet.h"
 #include "uart.h"
 
 static void SystemClock_Config(void);
+
+#ifdef STM_UART_PROTOCOL_TEST
+
+static volatile arm_actual_state_t g_actual_state;
+static volatile arm_desired_state_t g_desired_state;
+
+static void ActualState_Init(void)
+{
+    for (size_t i = 0u; i < ARM_UART_JOINT_COUNT; ++i) {
+        g_actual_state.actual_joint_angles[i] = (float)i * 10.0f;
+        g_desired_state.desired_joint_angles[i] = 0.0f;
+    }
+    g_actual_state.force_sensor = 1.0f;
+}
+
+static arm_actual_state_t ActualState_Snapshot(void)
+{
+    arm_actual_state_t snapshot;
+    __disable_irq();
+    for (size_t i = 0u; i < ARM_UART_JOINT_COUNT; ++i) {
+        snapshot.actual_joint_angles[i] = g_actual_state.actual_joint_angles[i];
+    }
+    snapshot.force_sensor = g_actual_state.force_sensor;
+    __enable_irq();
+    return snapshot;
+}
+
+static void DesiredState_Store(const arm_desired_state_t *desired)
+{
+    if (desired == NULL) {
+        return;
+    }
+
+    __disable_irq();
+    for (size_t i = 0u; i < ARM_UART_JOINT_COUNT; ++i) {
+        g_desired_state.desired_joint_angles[i] = desired->desired_joint_angles[i];
+    }
+    __enable_irq();
+}
+
+static void ActualState_AdvanceForTest(uint8_t sequence)
+{
+    __disable_irq();
+    for (size_t i = 0u; i < ARM_UART_JOINT_COUNT; ++i) {
+        g_actual_state.actual_joint_angles[i] = (float)sequence + ((float)i * 10.0f);
+    }
+    g_actual_state.force_sensor = 1.0f + ((float)sequence * 0.25f);
+    __enable_irq();
+}
+
+int main(void)
+{
+    HAL_Init();
+    SystemClock_Config();
+
+    UART_Init(115200);
+    ActualState_Init();
+
+    arm_uart_parser_t parser;
+    arm_uart_parser_init(&parser);
+
+    uint8_t tx_frame[ARM_UART_MAX_FRAME_SIZE];
+    uint8_t tx_sequence = 0u;
+    uint32_t last_tx_tick = 0u;
+
+    while (1) {
+        uint8_t rx_byte = 0u;
+        while (UART_ReadByte(&rx_byte)) {
+            if (arm_uart_parser_feed(&parser, rx_byte)) {
+                arm_desired_state_t desired;
+                uint8_t rx_sequence = 0u;
+                if (arm_uart_decode_desired_state_packet(parser.bytes,
+                                                         parser.frame_length,
+                                                         &desired,
+                                                         &rx_sequence)) {
+                    (void)rx_sequence;
+                    DesiredState_Store(&desired);
+                }
+            }
+        }
+
+        const uint32_t now = HAL_GetTick();
+        if ((now - last_tx_tick) >= 100u) {
+            last_tx_tick = now;
+            ActualState_AdvanceForTest(tx_sequence);
+            const arm_actual_state_t actual = ActualState_Snapshot();
+            const size_t tx_len = arm_uart_build_actual_state_packet(&actual,
+                                                                     tx_sequence,
+                                                                     tx_frame,
+                                                                     sizeof(tx_frame));
+            if (tx_len > 0u) {
+                UART_Write(tx_frame, tx_len);
+                tx_sequence++;
+            }
+        }
+
+        HAL_Delay(1u);
+    }
+}
+
+#else
 
 int main(void)
 {
@@ -36,6 +138,8 @@ int main(void)
         }
     }
 }
+
+#endif
 
 static void SystemClock_Config(void)
 {
