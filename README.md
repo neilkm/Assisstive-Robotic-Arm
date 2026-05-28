@@ -212,9 +212,9 @@ Software/Jetson/Esp32BluetoothProtocol/tests/test_esp32_bluetooth_protocol.py --
 
 The echo test is a separate ESP32 firmware mode for validating that Bluetooth is
 the only runtime link between the Jetson and ESP32. It sends a test-runner
-banner over Bluetooth UART after pairing. The Jetson terminal prompts for a
-string, sends it over `/dev/rfcomm0`, and expects the ESP32 to echo it back as
-`Rx [message]`.
+banner over Bluetooth UART after pairing. The ESP32 then listens forever for
+newline-terminated strings, echoing each one back as `Rx [message]`. The Jetson
+terminal script prompts repeatedly until stopped with Ctrl-C.
 
 Run the full echo test from the Jetson:
 

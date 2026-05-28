@@ -49,8 +49,9 @@ Software/ESP32/scripts/flash_random_button_test.py
 
 This separate test mode validates interactive Bluetooth UART text traffic.
 After pairing, the ESP32 sends a banner over Bluetooth. The Jetson test script
-prompts for a string, sends it over `/dev/rfcomm0`, and expects the ESP32 to
-echo it as `Rx [message]`.
+prompts repeatedly for strings, sends each one over `/dev/rfcomm0`, and expects
+the ESP32 to echo each one as `Rx [message]`. Stop the Jetson script with
+Ctrl-C.
 
 Run the full Jetson-side echo test:
 

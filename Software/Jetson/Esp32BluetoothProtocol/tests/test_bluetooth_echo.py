@@ -119,19 +119,24 @@ def main():
             sys.exit(1)
 
         print()
-        message = input("Enter string to send to ESP32, then press Enter: ")
-        expected = f"Rx [{message}]"
-        os.write(fd, (message + "\n").encode("utf-8"))
+        print("Bluetooth UART echo test is running. Press Ctrl-C to stop.")
+        while True:
+            message = input("Enter string to send to ESP32, then press Enter: ")
+            expected = f"Rx [{message}]"
+            os.write(fd, (message + "\n").encode("utf-8"))
 
-        print("Waiting for echo...")
-        response = read_until(fd, expected, args.timeout_s)
-        if expected not in response:
+            print("Waiting for echo...")
+            response = read_until(fd, expected, args.timeout_s)
+            if expected not in response:
+                print()
+                print(f"Expected echo was not observed: {expected}")
+                sys.exit(1)
+
             print()
-            print(f"Expected echo was not observed: {expected}")
-            sys.exit(1)
-
+            print("Echo verified.")
+    except KeyboardInterrupt:
         print()
-        print("Bluetooth UART echo test passed.")
+        print("Bluetooth UART echo test stopped.")
     finally:
         os.close(fd)
 

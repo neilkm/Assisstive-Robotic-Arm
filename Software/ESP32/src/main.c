@@ -45,8 +45,8 @@ static void reset_echo_line(void)
 
 static void echo_received_line(void)
 {
-    char response[ESP32_ECHO_LINE_BUFFER_SIZE + 8u];
-    snprintf(response, sizeof(response), "Rx [%s]\r\n", echo_line_buffer);
+    char response[ESP32_ECHO_LINE_BUFFER_SIZE + 10u];
+    snprintf(response, sizeof(response), "Rx [%s]\r\n> ", echo_line_buffer);
     spp_write_string(response);
     reset_echo_line();
 }
