@@ -14,25 +14,25 @@ ECE129 capstone project: a 6-DOF assistive robotic arm.
 
 ```bash
 # Build everything
-./arm.sh build all
+Software/arm.sh build all
 
 # Flash production firmware
-./arm.sh flash all
+Software/arm.sh flash all
 
 # Run the UI
-./arm.sh run
+Software/arm.sh run
 
 # Run tests (virtual, no hardware needed)
-./arm.sh test
+Software/arm.sh test
 
 # Run tests against real hardware (on Jetson)
-./arm.sh test --hardware
+Software/arm.sh test --hardware
 
 # SSH to Jetson
-./arm.sh ssh
+Software/arm.sh ssh
 ```
 
-Run `./arm.sh help` for full usage.
+Run `Software/arm.sh help` for full usage.
 
 ## Directory Layout
 

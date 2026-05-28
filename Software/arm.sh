@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Unified build/flash/test/run/ssh script for the assistive robotic arm project.
-# Run from the repository root.  Run "arm.sh help" for full usage.
+# Run from anywhere.  Run "Software/arm.sh help" for full usage.
 
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILDS_DIR="${REPO_ROOT}/builds"
 
 # ── Production firmware modes ─────────────────────────────────────────────────
