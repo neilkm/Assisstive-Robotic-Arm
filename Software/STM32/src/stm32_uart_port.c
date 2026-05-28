@@ -72,6 +72,8 @@ void stm32_uart_port_write_tx_byte_blocking(uint8_t byte)
     while ((UART_INSTANCE->SR & USART_SR_TXE) == 0u) {
     }
     stm32_uart_port_write_tx_byte(byte);
+    while ((UART_INSTANCE->SR & USART_SR_TC) == 0u) {
+    }
 }
 
 uint8_t stm32_uart_port_read_rx_byte(void)

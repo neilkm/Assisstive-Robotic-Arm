@@ -33,7 +33,14 @@ static void uart_write_string_blocking(const char *string)
 
 static void print_intro_message(void)
 {
-    common_test_write_text(uart_format_writer, NULL, "STM32 UART Test Harness, enter text and hear echo.\n");
+    common_test_write_text(uart_format_writer, NULL, "\n");
+    common_test_write_text(uart_format_writer, NULL, "========================================\n");
+    common_test_write_text(uart_format_writer, NULL, "        STM32 UART Test Harness\n");
+    common_test_write_text(uart_format_writer, NULL, "========================================\n");
+    common_test_write_text(uart_format_writer, NULL, "\n");
+    common_test_write_text(uart_format_writer, NULL, "Enter text and press Return\n");
+    common_test_write_text(uart_format_writer, NULL, "The STM32 will echo your message\n");
+    common_test_write_text(uart_format_writer, NULL, "\n> ");
 }
 
 static void print_prompt(void)
@@ -58,7 +65,6 @@ int main(void)
     stm32_uart_port_configure_polling();
 
     print_intro_message();
-    print_prompt();
     last_status_ms = HAL_GetTick();
 
     for (;;) {
