@@ -10,12 +10,12 @@ using namespace jetsonqt::statemachine;
 
 TEST(StateMachineConstruct, EmptyStatesThrows)
 {
-    EXPECT_THROW(StateMachine({}), std::invalid_argument);
+    EXPECT_THROW(StateMachine(std::vector<StateDefinition>{}), std::invalid_argument);
 }
 
 TEST(StateMachineConstruct, SingleStateIsValid)
 {
-    EXPECT_NO_THROW(StateMachine({{"Only", {}}}));
+    EXPECT_NO_THROW(StateMachine(std::vector<StateDefinition>{{"Only", {}}}));
 }
 
 // ─── Initial state (cooking UI) ───────────────────────────────────────────────
@@ -363,7 +363,7 @@ TEST_F(CookingStateMachine, StateNamesInOrder)
 
 TEST(StateMachineCustom, NoActionsStateDoesNotTransition)
 {
-    StateMachine sm({{"A", {}}, {"B", {"go"}}});
+    StateMachine sm(std::vector<StateDefinition>{{"A", {}}, {"B", {"go"}}});
     EXPECT_FALSE(sm.triggerSelectedAction());
     EXPECT_EQ(sm.currentState().name, "A");
 }
@@ -371,6 +371,6 @@ TEST(StateMachineCustom, NoActionsStateDoesNotTransition)
 TEST(StateMachineCustom, UnknownActionReturnsNullopt)
 {
     // A state whose action has no mapping → triggerSelectedAction returns false
-    StateMachine sm({{"X", {"unknown_action"}}});
+    StateMachine sm(std::vector<StateDefinition>{{"X", {"unknown_action"}}});
     EXPECT_FALSE(sm.triggerSelectedAction()); // no nextState registered
 }
