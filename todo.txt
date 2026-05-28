@@ -1,0 +1,17 @@
+6-2way-usb-stm-and-jetson:
+
+- c code on stm reaqds and sends characters over usb
+- cpp code on jetson reads and sends characters over usb
+
+use circular buffers and uart protocol
+
+todo:
+sending and receiving char code on stm and jetson both tested against eachother
+
+
+so far:
+stm can receive and acknowledge uart messages
+
+stm needs to take in structured data and give out structured data.
+
+jetson needs to read and write data
