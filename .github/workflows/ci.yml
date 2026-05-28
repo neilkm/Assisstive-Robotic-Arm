@@ -30,10 +30,11 @@ jobs:
             -DINTEGRATION_TEST_USE_HARDWARE=OFF
 
       - name: Build
-        run: cmake --build builds/Testing --target \
-          arm_uart_packet_unit_test \
-          esp32_button_packet_unit_test \
-          state_machine_unit_test
+        run: |
+          cmake --build builds/Testing --target \
+            arm_uart_packet_unit_test \
+            esp32_button_packet_unit_test \
+            state_machine_unit_test
 
       - name: Run unit tests
         run: |
@@ -65,9 +66,10 @@ jobs:
             -DINTEGRATION_TEST_USE_HARDWARE=OFF
 
       - name: Build integration tests
-        run: cmake --build builds/Testing --target \
-          uart_integration_test \
-          bluetooth_integration_test
+        run: |
+          cmake --build builds/Testing --target \
+            uart_integration_test \
+            bluetooth_integration_test
 
       - name: Run integration tests (virtual)
         run: |
