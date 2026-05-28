@@ -19,11 +19,54 @@
 #define ESP32_BUTTON_SPP_SERVER_NAME "ArmButtonSpp"
 #define ESP32_BUTTON_SEND_PERIOD_MS 100u
 #define ESP32_BUTTON_ACK_TIMEOUT_MS 250u
+#define ESP32_ECHO_LINE_BUFFER_SIZE 128u
 
 static const char *TAG = "esp32_buttons";
 
 static volatile bool spp_connected = false;
 static volatile uint32_t spp_handle = 0u;
+
+#ifdef ESP32_BT_ECHO_TEST
+static char echo_line_buffer[ESP32_ECHO_LINE_BUFFER_SIZE];
+static size_t echo_line_length = 0u;
+
+static void spp_write_string(const char *text)
+{
+    if (spp_connected && spp_handle != 0u && text != NULL) {
+        esp_spp_write((uint32_t)spp_handle, (int)strlen(text), (uint8_t *)text);
+    }
+}
+
+static void reset_echo_line(void)
+{
+    echo_line_length = 0u;
+    echo_line_buffer[0] = '\0';
+}
+
+static void echo_received_line(void)
+{
+    char response[ESP32_ECHO_LINE_BUFFER_SIZE + 8u];
+    snprintf(response, sizeof(response), "Rx [%s]\r\n", echo_line_buffer);
+    spp_write_string(response);
+    reset_echo_line();
+}
+
+static void handle_echo_rx_byte(uint8_t byte)
+{
+    if (byte == '\r') {
+        return;
+    }
+    if (byte == '\n') {
+        echo_received_line();
+        return;
+    }
+
+    if (echo_line_length < ESP32_ECHO_LINE_BUFFER_SIZE - 1u) {
+        echo_line_buffer[echo_line_length++] = (char)byte;
+        echo_line_buffer[echo_line_length] = '\0';
+    }
+}
+#else
 static volatile bool waiting_for_ack = false;
 static volatile uint8_t waiting_sequence = 0u;
 static esp32_button_parser_t rx_parser;
@@ -47,6 +90,7 @@ static void handle_rx_byte(uint8_t byte)
         ESP_LOGD(TAG, "ACK sequence=%" PRIu8, acknowledged_sequence);
     }
 }
+#endif
 
 static void spp_callback(esp_spp_cb_event_t event, esp_spp_cb_param_t *param)
 {
@@ -59,20 +103,37 @@ static void spp_callback(esp_spp_cb_event_t event, esp_spp_cb_param_t *param)
     case ESP_SPP_SRV_OPEN_EVT:
         spp_handle = param->srv_open.handle;
         spp_connected = true;
+#ifdef ESP32_BT_ECHO_TEST
+        reset_echo_line();
+        spp_write_string("\r\n========================================\r\n");
+        spp_write_string(" ESP32 Bluetooth UART Echo Test Runner\r\n");
+        spp_write_string(" Type a string from the Jetson terminal and press Enter.\r\n");
+        spp_write_string(" Echo format: Rx [message]\r\n");
+        spp_write_string("========================================\r\n> ");
+#else
         waiting_for_ack = false;
         esp32_button_parser_init(&rx_parser);
+#endif
         ESP_LOGI(TAG, "Jetson SPP connected");
         break;
     case ESP_SPP_CLOSE_EVT:
         spp_connected = false;
         spp_handle = 0u;
+#ifdef ESP32_BT_ECHO_TEST
+        reset_echo_line();
+#else
         waiting_for_ack = false;
+#endif
         ESP_ERROR_CHECK(esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE, ESP_BT_GENERAL_DISCOVERABLE));
         ESP_LOGI(TAG, "Jetson SPP disconnected");
         break;
     case ESP_SPP_DATA_IND_EVT:
         for (uint16_t i = 0u; i < param->data_ind.len; ++i) {
+#ifdef ESP32_BT_ECHO_TEST
+            handle_echo_rx_byte(param->data_ind.data[i]);
+#else
             handle_rx_byte(param->data_ind.data[i]);
+#endif
         }
         break;
     default:
@@ -123,9 +184,20 @@ static void init_bluetooth_spp(void)
 
 void app_main(void)
 {
+#ifdef ESP32_BT_ECHO_TEST
+    reset_echo_line();
+#else
     esp32_button_parser_init(&rx_parser);
+#endif
     init_bluetooth_spp();
 
+#ifdef ESP32_BT_ECHO_TEST
+    ESP_LOGI(TAG, "ESP32 Bluetooth UART echo test ready as %s", ESP32_BUTTON_DEVICE_NAME);
+
+    while (true) {
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+#else
     uint8_t sequence = 0u;
     uint8_t tx_frame[ESP32_BUTTON_MAX_FRAME_SIZE];
     size_t tx_len = 0u;
@@ -166,4 +238,5 @@ void app_main(void)
 
         vTaskDelay(pdMS_TO_TICKS(10));
     }
+#endif
 }

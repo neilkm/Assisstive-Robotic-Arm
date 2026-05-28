@@ -169,6 +169,12 @@ pio run -d Software/ESP32 -e esp32dev
 pio run -d Software/ESP32 -e esp32dev -t upload
 ```
 
+Or flash the current active random button telemetry test with:
+
+```bash
+Software/ESP32/scripts/flash_random_button_test.py
+```
+
 The firmware sends one random state packet, waits for the Jetson ACK for that
 sequence, and retransmits the same packet if the ACK does not arrive within
 250 ms.
@@ -200,4 +206,25 @@ and prints a parsed summary of random masks and ACKs:
 
 ```bash
 Software/Jetson/Esp32BluetoothProtocol/tests/test_esp32_bluetooth_protocol.py --device /dev/rfcomm0 --rx-hex
+```
+
+### Bluetooth UART Echo Test
+
+The echo test is a separate ESP32 firmware mode for validating that Bluetooth is
+the only runtime link between the Jetson and ESP32. It sends a test-runner
+banner over Bluetooth UART after pairing. The Jetson terminal prompts for a
+string, sends it over `/dev/rfcomm0`, and expects the ESP32 to echo it back as
+`Rx [message]`.
+
+Run the full echo test from the Jetson:
+
+```bash
+Software/Jetson/Esp32BluetoothProtocol/tests/test_bluetooth_echo.py --device /dev/rfcomm0
+```
+
+To build or upload the echo firmware directly:
+
+```bash
+pio run -d Software/ESP32 -e esp32dev_bluetooth_echo_test
+pio run -d Software/ESP32 -e esp32dev_bluetooth_echo_test -t upload
 ```
