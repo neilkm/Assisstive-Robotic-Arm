@@ -297,11 +297,11 @@ tools_run() {
     case "${tool}" in
         apriltag-pdf)
             require python3 "install python3 first"
-            exec python3 "${REPO_ROOT}/Tools/Mac/AprilTags/generate_apriltag_pdf.py" "$@" ;;
+            exec python3 "${REPO_ROOT}/Software/Mac/AprilTags/generate_apriltag_pdf.py" "$@" ;;
         jetson-burn)
-            exec "${REPO_ROOT}/Tools/Jetson/PowerDrawTest/jetson-burn.sh" "$@" ;;
+            exec "${REPO_ROOT}/Software/Jetson/PowerDrawTest/jetson-burn.sh" "$@" ;;
         system-monitor)
-            exec "${REPO_ROOT}/Tools/Jetson/SystemMonitor/System-Monitor-NNK" "$@" ;;
+            exec "${REPO_ROOT}/Software/Jetson/SystemMonitor/System-Monitor-NNK" "$@" ;;
         "") die "tools run requires a tool name. Run: arm.sh help" ;;
         *)  die "unknown tool '${tool}'. Run: arm.sh help" ;;
     esac

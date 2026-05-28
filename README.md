@@ -39,17 +39,17 @@ Run `./arm.sh help` for full usage.
 ```
 Software/
   Jetson/
-    QtApp/                   Qt/QML application
-    UartProtocol/            Jetson UART driver and protocol tool
-    Esp32BluetoothProtocol/  Jetson Bluetooth driver and tool
-  STM32/                     STM32 firmware (PlatformIO)
-  ESP32/                     ESP32 firmware (PlatformIO)
-  sandbox/                   Experimental apps (apriltag-ik, camera-test, …)
-Testing/                     Unified C++ test suite (unit + integration)
-Tools/
-  Mac/AprilTags/             AprilTag PDF generator (Mac)
-  Jetson/PowerDrawTest/      CUDA power-draw stress test
-  Jetson/SystemMonitor/      Terminal system-monitor TUI
-Electrical/                  Electrical design
-Mechanical/                  Mechanical design
+    QtApp/                 Qt/QML application
+    UartProtocol/          Jetson UART driver and protocol tool
+    Esp32BluetoothProtocol/ Jetson Bluetooth driver and tool
+    PowerDrawTest/         CUDA power-draw stress test
+    SystemMonitor/         Terminal system-monitor TUI
+  STM32/                   STM32 firmware (PlatformIO)
+  ESP32/                   ESP32 firmware (PlatformIO)
+  Mac/
+    AprilTags/             AprilTag PDF generator
+  sandbox/                 Experimental apps (apriltag-ik, camera-test, …)
+Testing/                   Unified C++ test suite (unit + integration)
+Electrical/                Electrical design
+Mechanical/                Mechanical design
 ```
