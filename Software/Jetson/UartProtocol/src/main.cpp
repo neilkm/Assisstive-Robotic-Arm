@@ -15,12 +15,13 @@ struct Options {
     int baudrate = 115200;
     int iterations = 20;
     int period_ms = 100;
+    bool rx_hex = false;
 };
 
 void printUsage(const char* program)
 {
     std::fprintf(stderr,
-                 "Usage: %s [--device PATH] [--baud BAUD] [--iterations N] [--period-ms N]\n",
+                 "Usage: %s [--device PATH] [--baud BAUD] [--iterations N] [--period-ms N] [--rx-hex]\n",
                  program);
 }
 
@@ -56,6 +57,8 @@ bool parseOptions(int argc, char** argv, Options* options)
             if (!parseInt(argv[++i], &options->period_ms)) {
                 return false;
             }
+        } else if (std::strcmp(argv[i], "--rx-hex") == 0) {
+            options->rx_hex = true;
         } else if (std::strcmp(argv[i], "--help") == 0) {
             printUsage(argv[0]);
             std::exit(0);
@@ -119,6 +122,9 @@ int main(int argc, char** argv)
     uint8_t tx_frame[ARM_UART_MAX_FRAME_SIZE];
     uint8_t tx_sequence = 0u;
     int received_packets = 0;
+    size_t received_bytes = 0u;
+    size_t valid_frames = 0u;
+    size_t non_actual_frames = 0u;
 
     for (int i = 0; i < options.iterations; ++i) {
         const arm_desired_state_t desired = makeDesiredState(tx_sequence);
@@ -142,9 +148,20 @@ int main(int argc, char** argv)
                 std::fprintf(stderr, "UART read failed: %s\n", error.c_str());
                 return 1;
             }
+            if (count > 0) {
+                received_bytes += static_cast<size_t>(count);
+                if (options.rx_hex) {
+                    std::printf("RX raw    bytes=%zd hex=", count);
+                    for (ssize_t byte_index = 0; byte_index < count; ++byte_index) {
+                        std::printf("%02X", rx_bytes[byte_index]);
+                    }
+                    std::printf("\n");
+                }
+            }
 
             for (ssize_t byte_index = 0; byte_index < count; ++byte_index) {
                 if (arm_uart_parser_feed(&parser, rx_bytes[byte_index])) {
+                    valid_frames++;
                     arm_actual_state_t actual {};
                     uint8_t rx_sequence = 0u;
                     if (arm_uart_decode_actual_state_packet(parser.bytes,
@@ -153,12 +170,24 @@ int main(int argc, char** argv)
                                                             &rx_sequence)) {
                         printActual(rx_sequence, actual);
                         received_packets++;
+                    } else {
+                        non_actual_frames++;
                     }
                 }
             }
         }
     }
 
-    std::printf("Complete: sent_desired=%d received_actual=%d\n", options.iterations, received_packets);
+    std::printf("Complete: sent_desired=%d rx_bytes=%zu valid_frames=%zu received_actual=%d non_actual_frames=%zu\n",
+                options.iterations,
+                received_bytes,
+                valid_frames,
+                received_packets,
+                non_actual_frames);
+    if (received_bytes == 0u) {
+        std::printf("No RX bytes were observed. Check device selection, TX/RX crossover wiring, common ground, and STM UART pins.\n");
+    } else if (valid_frames == 0u) {
+        std::printf("RX bytes were observed, but no valid protocol frames decoded. Re-run with --rx-hex to inspect framing.\n");
+    }
     return (received_packets > 0) ? 0 : 1;
 }
