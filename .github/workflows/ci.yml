@@ -40,7 +40,7 @@ jobs:
         run: |
           ctest --test-dir builds/Testing \
             --output-on-failure \
-            -L "^(?!integration)" \
+            -LE "^integration" \
             --timeout 60
 
   # ────────────────────────────────────────────────────────────────────────────
