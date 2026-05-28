@@ -38,6 +38,11 @@ static void print_intro_message(void)
     common_test_write_text(uart_format_writer, NULL, "STM32 UART Test Harness, enter text and hear echo.\n");
 }
 
+static void print_prompt(void)
+{
+    uart_write_string_blocking("\n> ");
+}
+
 static void echo_line(const char *line)
 {
     uart_write_string_blocking("\nReceived: [");
@@ -55,6 +60,7 @@ int main(void)
     uart_init();
 
     print_intro_message();
+    print_prompt();
     last_prompt_ms = HAL_GetTick();
 
     for (;;) {
@@ -62,7 +68,7 @@ int main(void)
         const uint32_t now_ms = HAL_GetTick();
 
         if ((now_ms - last_prompt_ms) >= PROMPT_PERIOD_MS) {
-            uart_write_string_blocking("\n> ");
+            print_prompt();
             last_prompt_ms = now_ms;
         }
 

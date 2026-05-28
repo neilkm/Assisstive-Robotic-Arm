@@ -50,12 +50,12 @@ typedef enum {
 } uart_status_t;
 
 typedef struct {
-    uint16_t rx_count;
+    volatile uint16_t rx_count;
     uint8_t *rx_in_ptr;
     uint8_t *rx_out_ptr;
     uint8_t rx_buffer[UART_RX_STORAGE_SIZE];
 
-    uint16_t tx_count;
+    volatile uint16_t tx_count;
     uint8_t *tx_in_ptr;
     uint8_t *tx_out_ptr;
     uint8_t tx_buffer[UART_TX_STORAGE_SIZE];
