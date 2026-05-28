@@ -43,13 +43,17 @@ static void DesiredState_Store(const arm_desired_state_t *desired)
     __enable_irq();
 }
 
-static void ActualState_AdvanceForTest(uint8_t sequence)
+static void ActualState_MirrorDesiredForTest(const arm_desired_state_t *desired, uint8_t sequence)
 {
+    if (desired == NULL) {
+        return;
+    }
+
     __disable_irq();
     for (size_t i = 0u; i < ARM_UART_JOINT_COUNT; ++i) {
-        g_actual_state.actual_joint_angles[i] = (float)sequence + ((float)i * 10.0f);
+        g_actual_state.actual_joint_angles[i] = desired->desired_joint_angles[i];
     }
-    g_actual_state.force_sensor = 1.0f + ((float)sequence * 0.25f);
+    g_actual_state.force_sensor = (float)sequence;
     __enable_irq();
 }
 
@@ -91,8 +95,8 @@ int main(void)
                                                          parser.frame_length,
                                                          &desired,
                                                          &rx_sequence)) {
-                    (void)rx_sequence;
                     DesiredState_Store(&desired);
+                    ActualState_MirrorDesiredForTest(&desired, rx_sequence);
                 }
             }
         }
@@ -100,7 +104,6 @@ int main(void)
         const uint32_t now = HAL_GetTick();
         if ((now - last_tx_tick) >= 100u) {
             last_tx_tick = now;
-            ActualState_AdvanceForTest(tx_sequence);
             const arm_actual_state_t actual = ActualState_Snapshot();
             const size_t tx_len = arm_uart_build_actual_state_packet(&actual,
                                                                      tx_sequence,
