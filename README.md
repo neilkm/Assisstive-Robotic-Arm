@@ -17,14 +17,16 @@ ECE129 capstone project: a 6-DOF assistive robotic arm.
 ./arm.sh build all
 
 # Flash production firmware
-./arm.sh flash stm32 protocol
-./arm.sh flash esp32 normal
+./arm.sh flash all
 
 # Run the UI
 ./arm.sh run
 
-# Run tests
+# Run tests (virtual, no hardware needed)
 ./arm.sh test
+
+# Run tests against real hardware (on Jetson)
+./arm.sh test --hardware
 
 # SSH to Jetson
 ./arm.sh ssh
@@ -37,13 +39,17 @@ Run `./arm.sh help` for full usage.
 ```
 Software/
   Jetson/
-    QtApp/                Qt/QML application + components
-    UartProtocol/         Jetson POSIX UART driver and protocol tool
-    Esp32BluetoothProtocol/ Jetson RFCOMM Bluetooth driver and tool
-  STM32/                  PlatformIO STM32 firmware
-  ESP32/                  PlatformIO ESP32 firmware
-  scripts/                Helper scripts (called by arm.sh)
-Testing/                  Unified C++ test suite (unit + integration)
-Electrical/               Electrical design
-Mechanical/               Mechanical design
+    QtApp/                   Qt/QML application
+    UartProtocol/            Jetson UART driver and protocol tool
+    Esp32BluetoothProtocol/  Jetson Bluetooth driver and tool
+  STM32/                     STM32 firmware (PlatformIO)
+  ESP32/                     ESP32 firmware (PlatformIO)
+  sandbox/                   Experimental apps (apriltag-ik, camera-test, …)
+Testing/                     Unified C++ test suite (unit + integration)
+Tools/
+  Mac/AprilTags/             AprilTag PDF generator (Mac)
+  Jetson/PowerDrawTest/      CUDA power-draw stress test
+  Jetson/SystemMonitor/      Terminal system-monitor TUI
+Electrical/                  Electrical design
+Mechanical/                  Mechanical design
 ```
