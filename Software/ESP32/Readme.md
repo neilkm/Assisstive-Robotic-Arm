@@ -10,3 +10,31 @@ pio run -t upload
 
 #build and upload from the repository root
 Software/scripts/build_and_flash_esp32_app.sh
+
+## Bluetooth random button test firmware
+
+This app advertises a Bluetooth Classic SPP service named `ArmESP32Buttons`.
+The Jetson pairs/trusts that device and binds it to `/dev/rfcomm0` before
+running the listener in `Software/Jetson/Esp32BluetoothProtocol`.
+
+This is currently a transport test. It does not read physical GPIOs yet; each
+fresh state packet contains a new random six-bit button mask. If an ACK is not
+received, the firmware retransmits the same sequence and mask.
+
+Build:
+
+```bash
+pio run -d Software/ESP32 -e esp32dev
+```
+
+Upload:
+
+```bash
+pio run -d Software/ESP32 -e esp32dev -t upload
+```
+
+Run the Jetson-side full test:
+
+```bash
+Software/Jetson/Esp32BluetoothProtocol/tests/test_esp32_bluetooth_protocol.py --device /dev/rfcomm0
+```

@@ -122,3 +122,82 @@ non_actual_frames=0
 During that run, desired sequences `1` through `19` were echoed back by the STM
 as actual-state angles with matching force sequence values, verifying both
 Jetson-to-STM32 and STM32-to-Jetson packet transfer.
+
+## Jetson/ESP32 Bluetooth Button Protocol
+
+The ESP32-to-Jetson button protocol lives in:
+
+- `Software/ESP32/include/esp32_button_packet.h`: shared packet framing, CRC,
+  six-button payload, and ACK helpers.
+- `Software/ESP32/src/main.c`: ESP32 Bluetooth Classic SPP random button-state
+  test firmware.
+- `Software/Jetson/Esp32BluetoothProtocol/`: Jetson RFCOMM serial listener,
+  ACK writer, pairing helper, and tests.
+
+The ESP32 advertises as `ArmESP32Buttons` and exposes a Bluetooth Classic SPP
+service. The Jetson pairs/trusts that device, binds it to `/dev/rfcomm0`, then
+uses the RFCOMM device like a UART. Once paired and trusted, Linux/BlueZ can
+reconnect automatically when both boards are powered and the `rfcomm` binding is
+active.
+
+### Button Packet Format
+
+Frames use the same header/CRC shape as the STM UART protocol, with a smaller
+payload:
+
+```text
+magic[0]      0xB7
+magic[1]      0x32
+version       0x01
+type          0x10 button state, 0x11 ACK
+sequence      uint8_t sequence counter
+payload_len   uint8_t payload byte count
+payload       button state mask for state packets, empty for ACK packets
+crc16         little-endian CRC-16/CCITT over version/type/sequence/len/payload
+```
+
+Button-state payload bit `0` maps to button 1 and bit `5` maps to button 6. For
+now, the ESP32 test firmware sends a new random six-bit mask for each fresh
+state packet instead of reading physical GPIOs.
+
+### ESP32 Button Firmware
+
+Build or upload the ESP32 firmware:
+
+```bash
+pio run -d Software/ESP32 -e esp32dev
+pio run -d Software/ESP32 -e esp32dev -t upload
+```
+
+The firmware sends one random state packet, waits for the Jetson ACK for that
+sequence, and retransmits the same packet if the ACK does not arrive within
+250 ms.
+
+### Jetson Bluetooth Test
+
+Build the Jetson listener and local packet test:
+
+```bash
+cmake -S Software/Jetson/Esp32BluetoothProtocol -B builds/JetsonEsp32BluetoothProtocol
+cmake --build builds/JetsonEsp32BluetoothProtocol
+ctest --test-dir builds/JetsonEsp32BluetoothProtocol --output-on-failure
+```
+
+Pair and bind the ESP32 to an RFCOMM device on the Jetson:
+
+```bash
+Software/Jetson/Esp32BluetoothProtocol/scripts/pair_esp32_bluetooth.sh
+```
+
+Run the hardware listener:
+
+```bash
+builds/JetsonEsp32BluetoothProtocol/jetson_esp32_bluetooth_protocol --device /dev/rfcomm0 --rx-hex
+```
+
+Or run the full-test wrapper that builds, optionally flashes, pairs, listens,
+and prints a parsed summary of random masks and ACKs:
+
+```bash
+Software/Jetson/Esp32BluetoothProtocol/tests/test_esp32_bluetooth_protocol.py --device /dev/rfcomm0 --rx-hex
+```
