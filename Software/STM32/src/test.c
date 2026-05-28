@@ -4,7 +4,7 @@
 #include "stm32f4xx_hal.h"
 #include "uart.h"
 
-#define LINE_BUFFER_SIZE 96u
+#define LINE_BUFFER_SIZE 192u
 #define STATUS_PERIOD_MS 1000u
 
 static void print_intro(void)
