@@ -16,6 +16,16 @@ if ! command -v rfcomm >/dev/null 2>&1; then
     exit 1
 fi
 
+bluetooth_info_has() {
+    local mac="$1"
+    local key="$2"
+    local value="$3"
+    bluetoothctl info "${mac}" 2>/dev/null | awk -v key="${key}" -v value="${value}" '
+        $1 == key ":" && $2 == value { found = 1 }
+        END { exit found ? 0 : 1 }
+    '
+}
+
 echo "Powering Bluetooth and scanning for ${DEVICE_NAME}..."
 if command -v rfkill >/dev/null 2>&1; then
     sudo rfkill unblock bluetooth || true
@@ -47,7 +57,9 @@ if [[ -z "${DEVICE_MAC}" ]]; then
 fi
 
 echo "Pairing and trusting ${DEVICE_NAME} at ${DEVICE_MAC}..."
-if command -v expect >/dev/null 2>&1; then
+if bluetooth_info_has "${DEVICE_MAC}" "Paired" "yes"; then
+    echo "${DEVICE_NAME} is already paired."
+elif command -v expect >/dev/null 2>&1; then
     expect -c '
         set timeout 30
         set mac [lindex $argv 0]
@@ -90,16 +102,27 @@ if command -v expect >/dev/null 2>&1; then
         send "quit\r"
     ' "${DEVICE_MAC}" "${PAIR_PIN}"
 else
-    echo "warning: expect not found; attempting non-interactive bluetoothctl pairing" >&2
-    bluetoothctl <<EOF
-agent KeyboardOnly
-default-agent
-pair ${DEVICE_MAC}
-${PAIR_PIN}
-trust ${DEVICE_MAC}
-connect ${DEVICE_MAC}
-EOF
+    echo "error: ${DEVICE_NAME} is not paired and expect is not installed." >&2
+    echo "       Install it on the Jetson with: sudo apt-get install expect" >&2
+    echo "       Then rerun this test so the helper can answer the Bluetooth PIN ${PAIR_PIN} prompt." >&2
+    exit 1
 fi
+
+bluetoothctl trust "${DEVICE_MAC}"
+bluetoothctl connect "${DEVICE_MAC}" || true
+
+if ! bluetooth_info_has "${DEVICE_MAC}" "Paired" "yes"; then
+    echo "error: ${DEVICE_NAME} is still not paired after pairing attempt." >&2
+    bluetoothctl info "${DEVICE_MAC}" >&2 || true
+    exit 1
+fi
+if ! bluetooth_info_has "${DEVICE_MAC}" "Trusted" "yes"; then
+    echo "error: ${DEVICE_NAME} is still not trusted after trust attempt." >&2
+    bluetoothctl info "${DEVICE_MAC}" >&2 || true
+    exit 1
+fi
+
+echo "Pair/trust status verified for ${DEVICE_MAC}."
 
 echo "Binding ${RFCOMM_DEVICE} to ${DEVICE_MAC} channel ${RFCOMM_CHANNEL}..."
 if [[ -e "${RFCOMM_DEVICE}" ]]; then
