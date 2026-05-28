@@ -49,15 +49,15 @@ int main(void)
 
         uart_write_string("\r\nRX\r\n");
 
-        if ((byte == '\r') || (byte == '\n')) {
-            if (line_length > 0u) {
-                line_buffer[line_length] = '\0';
-                echo_line(line_buffer);
-                line_length = 0u;
-                print_prompt();
-            }
-            continue;
-        }
+        // if ((byte == '\r') || (byte == '\n')) {
+        //     if (line_length > 0u) {
+        //         line_buffer[line_length] = '\0';
+        //         echo_line(line_buffer);
+        //         line_length = 0u;
+        //         print_prompt();
+        //     }
+        //     continue;
+        // }
 
         if (line_length < (LINE_BUFFER_SIZE - 1u)) {
             line_buffer[line_length] = (char)byte;
