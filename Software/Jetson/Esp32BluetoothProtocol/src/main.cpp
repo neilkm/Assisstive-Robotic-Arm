@@ -1,6 +1,7 @@
 #include "bluetooth_uart_driver.h"
 #include "packet.h"
 
+#include <chrono>
 #include <cinttypes>
 #include <cstdio>
 #include <cstdlib>
@@ -131,12 +132,15 @@ int main(int argc, char** argv)
                 printButtonState(sequence, state);
 
                 const size_t ack_len = esp32_button_build_ack_packet(sequence, ack_frame, sizeof(ack_frame));
+                const auto ack_start = std::chrono::steady_clock::now();
                 if (ack_len == 0u || !uart.writeAll(ack_frame, ack_len, &error)) {
                     std::fprintf(stderr, "Bluetooth UART ACK write failed: %s\n", error.c_str());
                     return 1;
                 }
+                const auto ack_end = std::chrono::steady_clock::now();
+                const auto ack_latency_us = std::chrono::duration_cast<std::chrono::microseconds>(ack_end - ack_start).count();
                 ++ack_tx_frames;
-                std::printf("tx_ack seq=%" PRIu8 "\n", sequence);
+                std::printf("tx_ack seq=%" PRIu8 " ack_write_us=%lld\n", sequence, static_cast<long long>(ack_latency_us));
             } else {
                 ++non_state_frames;
             }

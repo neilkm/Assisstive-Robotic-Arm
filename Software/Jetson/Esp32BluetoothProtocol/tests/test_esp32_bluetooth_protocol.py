@@ -4,6 +4,7 @@ import argparse
 import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 
@@ -12,7 +13,7 @@ JETSON_PROTOCOL_DIR = REPO_ROOT / "Software" / "Jetson" / "Esp32BluetoothProtoco
 BUILD_DIR = REPO_ROOT / "builds" / "JetsonEsp32BluetoothProtocol"
 ESP32_DIR = REPO_ROOT / "Software" / "ESP32"
 STATE_RE = re.compile(r"rx_state seq=(\d+) mask=0x([0-9a-fA-F]{2}) buttons=\[([^\]]*)\]")
-ACK_RE = re.compile(r"tx_ack seq=(\d+)")
+ACK_RE = re.compile(r"tx_ack seq=(\d+)(?: ack_write_us=(\d+))?")
 SUMMARY_RE = re.compile(r"^(rx_bytes|valid_frames|state_frames|ack_tx_frames|non_state_frames)=(\d+)$")
 
 
@@ -44,9 +45,15 @@ def run(command, cwd=None, capture=False):
         sys.exit(exc.returncode)
 
 
-def print_listener_summary(output):
+def timed_run(command, cwd=None, capture=False):
+    start = time.monotonic()
+    result = run(command, cwd=cwd, capture=capture)
+    return result, time.monotonic() - start
+
+
+def print_listener_summary(output, pair_seconds=None):
     states = []
-    ack_sequences = []
+    ack_timings = {}
     counters = {}
 
     for line in output.splitlines():
@@ -63,7 +70,9 @@ def print_listener_summary(output):
 
         ack_match = ACK_RE.match(line)
         if ack_match:
-            ack_sequences.append(int(ack_match.group(1)))
+            ack_timings[int(ack_match.group(1))] = (
+                int(ack_match.group(2)) if ack_match.group(2) is not None else None
+            )
             continue
 
         summary_match = SUMMARY_RE.match(line)
@@ -71,8 +80,10 @@ def print_listener_summary(output):
             counters[summary_match.group(1)] = int(summary_match.group(2))
 
     print_section("Bluetooth Button Test Summary")
+    if pair_seconds is not None:
+        print(f"Pair/bind time:        {pair_seconds:.3f} s")
     print(f"Received state frames: {len(states)}")
-    print(f"Transmitted ACKs:      {len(ack_sequences)}")
+    print(f"Transmitted ACKs:      {len(ack_timings)}")
     if counters:
         print(f"Raw RX bytes:          {counters.get('rx_bytes', 0)}")
         print(f"Valid frames:          {counters.get('valid_frames', 0)}")
@@ -82,12 +93,25 @@ def print_listener_summary(output):
         print()
         print("Last random button samples:")
         for state in states[-10:]:
-            print(f"  seq={state['sequence']:3d} mask=0x{state['mask']:02X} buttons=[{state['buttons']}]")
+            ack_us = ack_timings.get(state["sequence"])
+            ack_text = f" ack_write={ack_us / 1000.0:.3f} ms" if ack_us is not None else ""
+            print(f"  seq={state['sequence']:3d} mask=0x{state['mask']:02X} buttons=[{state['buttons']}]" + ack_text)
+
+    ack_us_values = [value for value in ack_timings.values() if value is not None]
+    if ack_us_values:
+        print()
+        print(
+            "ACK write latency:    "
+            f"min={min(ack_us_values) / 1000.0:.3f} ms "
+            f"avg={sum(ack_us_values) / len(ack_us_values) / 1000.0:.3f} ms "
+            f"max={max(ack_us_values) / 1000.0:.3f} ms"
+        )
+        print("Note: this is Jetson receive-to-ACK-write latency, not ESP-observed Bluetooth RTT.")
 
     missing_acks = [
         state["sequence"]
         for state in states
-        if state["sequence"] not in ack_sequences
+        if state["sequence"] not in ack_timings
     ]
     if missing_acks:
         print()
@@ -128,10 +152,12 @@ def main():
 
     if not args.skip_pair:
         print_section("Pair And Bind ESP32 Bluetooth")
-        run([str(JETSON_PROTOCOL_DIR / "scripts" / "pair_esp32_bluetooth.sh")], capture=False)
+        _, pair_seconds = timed_run([str(JETSON_PROTOCOL_DIR / "scripts" / "pair_esp32_bluetooth.sh")], capture=False)
+        print(f"Pair/bind completed in {pair_seconds:.3f} s")
     else:
         print_section("Skip Bluetooth Pair/Bind")
         print(f"Using existing RFCOMM device at {args.device}.")
+        pair_seconds = None
 
     print_section("Run Jetson Listener")
     app = BUILD_DIR / "jetson_esp32_bluetooth_protocol"
@@ -150,7 +176,7 @@ def main():
     print(result.stdout, end="")
     if result.stderr:
         print(result.stderr, end="")
-    print_listener_summary(result.stdout)
+    print_listener_summary(result.stdout, pair_seconds=pair_seconds)
 
 
 if __name__ == "__main__":

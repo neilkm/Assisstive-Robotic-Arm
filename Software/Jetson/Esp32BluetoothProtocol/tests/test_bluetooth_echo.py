@@ -31,6 +31,12 @@ def run(command, cwd=None):
         sys.exit(exc.returncode)
 
 
+def timed_run(command, cwd=None):
+    start = time.monotonic()
+    run(command, cwd=cwd)
+    return time.monotonic() - start
+
+
 def configure_serial(fd, baudrate):
     attrs = termios.tcgetattr(fd)
     attrs[0] = 0
@@ -102,7 +108,8 @@ def main():
 
     if not args.skip_pair:
         print_section("Pair And Bind ESP32 Bluetooth")
-        run([str(JETSON_PROTOCOL_DIR / "scripts" / "pair_esp32_bluetooth.sh")])
+        pair_seconds = timed_run([str(JETSON_PROTOCOL_DIR / "scripts" / "pair_esp32_bluetooth.sh")])
+        print(f"Pair/bind completed in {pair_seconds:.3f} s")
     else:
         print_section("Skip Bluetooth Pair/Bind")
         print(f"Using existing RFCOMM device at {args.device}.")
@@ -120,22 +127,36 @@ def main():
 
         print()
         print("Bluetooth UART echo test is running. Press Ctrl-C to stop.")
+        message_count = 0
+        rtt_ms_values = []
         while True:
             message = input("Enter string to send to ESP32, then press Enter: ")
             expected = f"Rx [{message}]"
+            roundtrip_start = time.monotonic()
             os.write(fd, (message + "\n").encode("utf-8"))
 
             print("Waiting for echo...")
             response = read_until(fd, expected, args.timeout_s)
+            roundtrip_ms = (time.monotonic() - roundtrip_start) * 1000.0
             if expected not in response:
                 print()
                 print(f"Expected echo was not observed: {expected}")
                 sys.exit(1)
 
+            message_count += 1
+            rtt_ms_values.append(roundtrip_ms)
             print()
-            print("Echo verified.")
+            print(f"Echo verified. roundtrip={roundtrip_ms:.3f} ms message_count={message_count}")
     except KeyboardInterrupt:
         print()
+        if "rtt_ms_values" in locals() and rtt_ms_values:
+            print(
+                "Roundtrip summary: "
+                f"count={len(rtt_ms_values)} "
+                f"min={min(rtt_ms_values):.3f} ms "
+                f"avg={sum(rtt_ms_values) / len(rtt_ms_values):.3f} ms "
+                f"max={max(rtt_ms_values):.3f} ms"
+            )
         print("Bluetooth UART echo test stopped.")
     finally:
         os.close(fd)

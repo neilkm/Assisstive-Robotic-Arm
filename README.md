@@ -202,7 +202,8 @@ builds/JetsonEsp32BluetoothProtocol/jetson_esp32_bluetooth_protocol --device /de
 ```
 
 Or run the full-test wrapper that builds, optionally flashes, pairs, listens,
-and prints a parsed summary of random masks and ACKs:
+and prints pair/bind time plus a parsed summary of random masks and Jetson
+receive-to-ACK-write latency:
 
 ```bash
 Software/Jetson/Esp32BluetoothProtocol/tests/test_esp32_bluetooth_protocol.py --device /dev/rfcomm0 --rx-hex
@@ -215,6 +216,7 @@ the only runtime link between the Jetson and ESP32. It sends a test-runner
 banner over Bluetooth UART after pairing. The ESP32 then listens forever for
 newline-terminated strings, echoing each one back as `Rx [message]`. The Jetson
 terminal script prompts repeatedly until stopped with Ctrl-C.
+It reports pair/bind time and write-to-echo roundtrip time for each message.
 
 Run the full echo test from the Jetson:
 

@@ -51,7 +51,8 @@ This separate test mode validates interactive Bluetooth UART text traffic.
 After pairing, the ESP32 sends a banner over Bluetooth. The Jetson test script
 prompts repeatedly for strings, sends each one over `/dev/rfcomm0`, and expects
 the ESP32 to echo each one as `Rx [message]`. Stop the Jetson script with
-Ctrl-C.
+Ctrl-C. The script reports pair/bind time and write-to-echo roundtrip time for
+each message.
 
 Run the full Jetson-side echo test:
 
