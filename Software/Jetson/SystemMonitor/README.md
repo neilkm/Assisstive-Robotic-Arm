@@ -1,60 +1,29 @@
-# JetsonTools
+# SystemMonitor
 
-Small command-line tools for monitoring and operating Jetson/Linux hosts.
+Terminal TUI for monitoring a Jetson or Linux host from an SSH session. Shows host identity, SSH connections, logged-in sessions, memory, swap, load average, uptime, disk usage, Jetson power draw, thermal zones, and top CPU processes.
 
-## System-Monitor-NNK
+Uses only Python standard-library modules and Linux system tools. Jetson power values are read from NVIDIA sysfs sensors or `tegrastats` when available.
 
-`System-Monitor-NNK` is a terminal TUI for watching a server from an SSH session.
-It shows:
+## Install
 
-- host identity and current `user@ip`
-- established SSH TCP connections
-- logged-in shell sessions
-- memory and swap usage
-- load average, uptime, and root disk usage
-- Jetson power draw and power mode when available
-- thermal zones and top CPU processes
-
-The app uses only Python standard-library modules and Linux system tools. Jetson
-power values are read from NVIDIA sysfs sensors or `tegrastats` when available.
-
-Install:
-
-```sh
-./install.sh
+```bash
+Software/Jetson/SystemMonitor/install.sh
 ```
 
-Run after installation:
+Installs `System-Monitor-NNK` to `/usr/local/bin`. Override the install directory:
 
-```sh
+```bash
+INSTALL_DIR="$HOME/.local/bin" Software/Jetson/SystemMonitor/install.sh
+```
+
+## Run
+
+```bash
 System-Monitor-NNK
 ```
 
-## SSH Helper
+Or via arm.sh:
 
-`ssh_jetson.sh` opens an SSH session to the Jetson through Tailscale, so it does
-not depend on the campus network IP address.
-
-```sh
-Software/scripts/ssh_jetson.sh
-```
-
-Create `secrets.env` at the repository root. This file is git-ignored.
-
-```sh
-JETSON_SSH_USER=your-ssh-user
-JETSON_SSH_HOST=your-jetson-host
-JETSON_SSH_PASSWORD=your-jetson-password
-```
-
-Override any value for one command if needed:
-
-```sh
-JETSON_SSH_HOST=your-temporary-host Software/scripts/ssh_jetson.sh
-```
-
-By default the installer writes to `/usr/local/bin`. To install somewhere else:
-
-```sh
-INSTALL_DIR="$HOME/.local/bin" ./install.sh
+```bash
+Software/arm.sh tools run system-monitor
 ```
