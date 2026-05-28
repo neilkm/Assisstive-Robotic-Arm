@@ -71,10 +71,10 @@ if(INTEGRATION_TEST_USE_HARDWARE)
         INTEGRATION_TEST_BT_DEVICE="${INTEGRATION_TEST_BT_DEVICE}")
 endif()
 
-# ─── CTest registration (virtual mode only — hardware tests are run manually) ─
+# ─── CTest registration ───────────────────────────────────────────────────────
 
 if(NOT INTEGRATION_TEST_USE_HARDWARE)
-    # UART
+    # UART — virtual socketpair mode
     add_test(NAME uart_normal
         COMMAND uart_integration_test --test=normal --iterations=50)
     add_test(NAME uart_drops
@@ -82,7 +82,7 @@ if(NOT INTEGRATION_TEST_USE_HARDWARE)
     add_test(NAME uart_duplicates
         COMMAND uart_integration_test --test=duplicates --iterations=50)
 
-    # Bluetooth
+    # Bluetooth — virtual socketpair mode
     add_test(NAME bt_normal
         COMMAND bluetooth_integration_test --test=normal --iterations=30)
     add_test(NAME bt_drops
@@ -92,9 +92,37 @@ if(NOT INTEGRATION_TEST_USE_HARDWARE)
     add_test(NAME bt_powercycle
         COMMAND bluetooth_integration_test --test=powercycle --iterations=30 --powercycle-after=15)
 
-    # Label all integration tests so they can be filtered
     set_tests_properties(
         uart_normal uart_drops uart_duplicates
         bt_normal bt_drops bt_duplicates bt_powercycle
         PROPERTIES LABELS "integration")
+
+else()
+    # UART — real STM32 over /dev/ttyACM0
+    add_test(NAME uart_hw_normal
+        COMMAND uart_integration_test --mode=hardware
+            --device=${INTEGRATION_TEST_UART_DEVICE} --test=normal --iterations=20)
+    add_test(NAME uart_hw_drops
+        COMMAND uart_integration_test --mode=hardware
+            --device=${INTEGRATION_TEST_UART_DEVICE} --test=drops --iterations=20 --drop-every=5)
+    add_test(NAME uart_hw_duplicates
+        COMMAND uart_integration_test --mode=hardware
+            --device=${INTEGRATION_TEST_UART_DEVICE} --test=duplicates --iterations=20)
+
+    # Bluetooth — real ESP32 over /dev/rfcomm0
+    add_test(NAME bt_hw_normal
+        COMMAND bluetooth_integration_test --mode=hardware
+            --device=${INTEGRATION_TEST_BT_DEVICE} --test=normal --iterations=20)
+    add_test(NAME bt_hw_drops
+        COMMAND bluetooth_integration_test --mode=hardware
+            --device=${INTEGRATION_TEST_BT_DEVICE} --test=drops --iterations=20 --drop-every=5)
+    add_test(NAME bt_hw_duplicates
+        COMMAND bluetooth_integration_test --mode=hardware
+            --device=${INTEGRATION_TEST_BT_DEVICE} --test=duplicates --iterations=20)
+
+    set_tests_properties(
+        uart_hw_normal uart_hw_drops uart_hw_duplicates
+        bt_hw_normal bt_hw_drops bt_hw_duplicates
+        PROPERTIES LABELS "integration-hw")
+
 endif()
