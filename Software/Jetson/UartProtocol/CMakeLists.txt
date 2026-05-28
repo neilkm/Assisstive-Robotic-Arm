@@ -5,6 +5,14 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+enable_testing()
+
+add_library(arm_uart_packet INTERFACE)
+target_include_directories(arm_uart_packet
+    INTERFACE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
 add_library(jetson_uart_driver
     src/uart_driver.cpp
 )
@@ -18,13 +26,16 @@ add_executable(jetson_uart_protocol
 )
 target_link_libraries(jetson_uart_protocol
     PRIVATE
+        arm_uart_packet
         jetson_uart_driver
 )
 
 add_executable(packet_roundtrip_test
     tests/packet_roundtrip.cpp
 )
-target_include_directories(packet_roundtrip_test
+target_link_libraries(packet_roundtrip_test
     PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        arm_uart_packet
 )
+
+add_test(NAME packet_roundtrip_test COMMAND packet_roundtrip_test)
