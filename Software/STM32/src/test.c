@@ -33,26 +33,26 @@ static void uart_write_string_blocking(const char *string)
 
 static void print_intro_message(void)
 {
-    common_test_write_text(uart_format_writer, NULL, "\n");
-    common_test_write_text(uart_format_writer, NULL, "========================================\n");
-    common_test_write_text(uart_format_writer, NULL, "        STM32 UART Test Harness\n");
-    common_test_write_text(uart_format_writer, NULL, "========================================\n");
-    common_test_write_text(uart_format_writer, NULL, "\n");
-    common_test_write_text(uart_format_writer, NULL, "Enter text and press Return\n");
-    common_test_write_text(uart_format_writer, NULL, "The STM32 will echo your message\n");
-    common_test_write_text(uart_format_writer, NULL, "\n> ");
+    common_test_write_text(uart_format_writer, NULL, "\r\n");
+    common_test_write_text(uart_format_writer, NULL, "==============================\r\n");
+    common_test_write_text(uart_format_writer, NULL, "   STM32 UART Test Harness\r\n");
+    common_test_write_text(uart_format_writer, NULL, "==============================\r\n");
+    common_test_write_text(uart_format_writer, NULL, "\r\n");
+    common_test_write_text(uart_format_writer, NULL, "Enter text then press Return\r\n");
+    common_test_write_text(uart_format_writer, NULL, "STM32 echoes each message\r\n");
+    common_test_write_text(uart_format_writer, NULL, "\r\n> ");
 }
 
 static void print_prompt(void)
 {
-    uart_write_string_blocking("\n> ");
+    uart_write_string_blocking("\r\n> ");
 }
 
 static void echo_line(const char *line)
 {
-    uart_write_string_blocking("\nReceived: [");
+    uart_write_string_blocking("\r\nReceived: [");
     uart_write_string_blocking(line);
-    uart_write_string_blocking("]\n");
+    uart_write_string_blocking("]\r\n");
 }
 
 int main(void)
