@@ -1,42 +1,22 @@
-# Jetson Camera Test
+# jetson-camera-test
 
-Small standalone C++/OpenCV sandbox app for NVIDIA Jetson Nano.
+Standalone C++/OpenCV sandbox app for Jetson Nano. Opens a camera-selection screen listing all detected devices, then shows a live video feed for the chosen camera.
 
-It opens a single UI window with:
-- a launch screen that lists detected cameras,
-- keyboard navigation to choose a camera,
-- a live video view for the selected device.
-
-The app is aimed at Jetson Nano and supports:
-- V4L2 cameras exposed as `/dev/video*`,
-- Jetson CSI cameras available through `nvarguscamerasrc` on sensor IDs `0` and `1`.
-
-CSI camera support depends on the NVIDIA JetPack camera stack providing `nvarguscamerasrc`.
-The install script verifies that plugin and warns if it is missing.
+Supports V4L2 cameras (`/dev/video*`) and Jetson CSI cameras via `nvarguscamerasrc` (sensor IDs 0 and 1). CSI support requires the NVIDIA JetPack camera stack.
 
 ## Controls
 
-- `Arrow keys`: move through the camera list
-- `Enter`: open the selected camera
-- `r`: refresh the detected camera list
-- `b`: leave the live view and return to camera selection
-- `q` or `Esc`: quit
+| Key | Action |
+|-----|--------|
+| Arrow keys | Move through camera list |
+| Enter | Open selected camera |
+| `r` | Refresh camera list |
+| `b` | Back to camera selection |
+| `q` / Esc | Quit |
 
-## Jetson Nano Setup
-
-From this directory:
-
-```bash
-chmod +x install.sh build.sh run.sh
-./install.sh
-./run.sh
-```
-
-`install.sh` installs the required Ubuntu packages and then builds the project with CMake.
-
-## Build Manually
+## Build and run
 
 ```bash
-./build.sh
-./run.sh
+Software/arm.sh sandbox build camera-test   # CMake build → builds/sandbox/camera-test/
+Software/arm.sh sandbox run   camera-test   # launch app
 ```

@@ -1,5 +1,5 @@
-#ifndef SOFTWARE_COMMON_TESTS_TEST_H
-#define SOFTWARE_COMMON_TESTS_TEST_H
+#ifndef TESTING_UNIT_TESTS_TEST_H
+#define TESTING_UNIT_TESTS_TEST_H
 
 #include <cstdio>
 #include <string>
@@ -86,8 +86,12 @@ inline void enable_pretty_gtest_output()
     listeners.Append(new PrettyTestPrinter());
 }
 
-inline int run_pretty_gtest(int argc, char **argv)
+inline int run_pretty_gtest(int argc, char **argv, const char *description = nullptr)
 {
+    if (description && *description) {
+        std::printf("  %s\n", description);
+        std::fflush(stdout);
+    }
     ::testing::InitGoogleTest(&argc, argv);
     enable_pretty_gtest_output();
     return RUN_ALL_TESTS();

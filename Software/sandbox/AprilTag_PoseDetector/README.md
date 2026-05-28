@@ -1,82 +1,51 @@
 # AprilTag_PoseDetector
-Coding demo for OpenCV proof of concept for 2026 Robotics Eng. Capstone project.
 
-Goal is to recognize the distance, rotation, and angle of a known size AprilTag placed
-in front of the camera. 
+Python + OpenCV sandbox app that detects AprilTags from a webcam and computes pose (distance, rotation XYZ). Built for macOS (M2 MacBook Air).
 
-App should show:
+Detects `APRILTAG_36h11` tags. Shows a live video stream with a bounding-box overlay and a display of distance to the tag center plus XYZ rotation angles.
 
-- a video stream with a box overlay around the AprilTag
+## Layout
 
-- a live updating display of:
-
-	- distance to the center of the AprilTag
-
-  	- rotation angle in X Y Z
-
-# Getting Started
-
-this project was built to run on M2 MacBookAir
-
-## 1. Install Dependencies
-
-use bash script for installing dependencies and running project:
-
-$ chmod +x setup.sh
-
-$ ./setup.sh
-
-
-make sure to allow shell application to access camera. may need to restart terminal.
-
-press 'q' to quit app once dependencies are installed and confirmed to be working.
-
-## 2. Generate pdfs of AprilTags to print out
-
-tags taken from:
-
-https://github.com/AprilRobotics/apriltag-imgs.git
-
-use bash script for cloning the repo and selecting which tag id to print
-
-$ chmod +x ./tools/generate_tag_pdf.sh 
-
-$ ./tools/generate_tag_pdf.sh
-
-a new directory in root now contains a printable pdf of the AprilTag you chose
-sized to 10cm exactly which is what the code expects
-
-$ cd ./generated_pdfs/ 
-
-## 3. Run code and be amazed.
-
-$ ./setup.sh
-
-## 4. Run the Rust AprilTag detector
-
-The Rust app lives in `rust_pose_detector/` and opens your webcam to detect `APRILTAG_36h11` tags.
-
-Optional but recommended: create camera calibration first so pose estimates are more accurate:
-
-```bash
-./setup.sh --calibrate
+```
+src/
+  detect_pose.py        Main OpenCV pose detector
+  camera_calibrate.py   Optional camera calibration (produces src/camera.yaml)
+rust_pose_detector/     Rust implementation of the same detector
+  src/main.rs
+  Cargo.toml
+requirements.txt
 ```
 
-This creates `src/camera.yaml`, which the Rust app will automatically use.
-
-From `Software/AprilTag_PoseDetector`:
+## Build and run
 
 ```bash
-cd rust_pose_detector
+Software/arm.sh sandbox build apriltag-detector   # create venv + install deps
+Software/arm.sh sandbox run   apriltag-detector   # run detector
+```
+
+Allow camera access for Terminal when prompted. Press `q` to quit.
+
+## Calibration (optional)
+
+Camera calibration improves pose accuracy. Run before the detector:
+
+```bash
+Software/arm.sh sandbox run apriltag-detector --calibrate
+```
+
+This produces `src/camera.yaml`, which the detector uses automatically.
+
+## Rust detector
+
+```bash
+cd Software/sandbox/AprilTag_PoseDetector/rust_pose_detector
 cargo run
 ```
 
-Or from repo root:
+## Generating printable AprilTag PDFs
 
 ```bash
-cargo run --manifest-path Software/AprilTag_PoseDetector/rust_pose_detector/Cargo.toml
+Software/arm.sh tools run apriltag-pdf
 ```
 
-Notes:
-- Allow camera permission for Terminal when prompted.
-- Press `q` in the detector window to quit.
+Tags should be printed at exactly 10 cm — that is the size the detector expects.
