@@ -31,8 +31,6 @@ if ! bluetoothctl show >/dev/null 2>&1; then
 fi
 
 bluetoothctl power on
-bluetoothctl agent KeyboardOnly || bluetoothctl agent NoInputNoOutput
-bluetoothctl default-agent
 
 bluetoothctl scan on >/dev/null &
 SCAN_PID=$!
@@ -94,6 +92,8 @@ if command -v expect >/dev/null 2>&1; then
 else
     echo "warning: expect not found; attempting non-interactive bluetoothctl pairing" >&2
     bluetoothctl <<EOF
+agent KeyboardOnly
+default-agent
 pair ${DEVICE_MAC}
 ${PAIR_PIN}
 trust ${DEVICE_MAC}
