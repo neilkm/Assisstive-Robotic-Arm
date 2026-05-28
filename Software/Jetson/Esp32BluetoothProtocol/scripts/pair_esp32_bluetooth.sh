@@ -60,10 +60,10 @@ echo "Pairing and trusting ${DEVICE_NAME} at ${DEVICE_MAC}..."
 if bluetooth_info_has "${DEVICE_MAC}" "Paired" "yes"; then
     echo "${DEVICE_NAME} is already paired."
 elif command -v expect >/dev/null 2>&1; then
-    expect -c '
+    EXPECT_DEVICE_MAC="${DEVICE_MAC}" EXPECT_PAIR_PIN="${PAIR_PIN}" expect -c '
         set timeout 30
-        set mac [lindex $argv 0]
-        set pin [lindex $argv 1]
+        set mac $env(EXPECT_DEVICE_MAC)
+        set pin $env(EXPECT_PAIR_PIN)
         spawn bluetoothctl
         expect {
             -re "# " {}
@@ -100,7 +100,7 @@ elif command -v expect >/dev/null 2>&1; then
             timeout { exit 8 }
         }
         send "quit\r"
-    ' "${DEVICE_MAC}" "${PAIR_PIN}"
+    '
 else
     echo "error: ${DEVICE_NAME} is not paired and expect is not installed." >&2
     echo "       Install it on the Jetson with: sudo apt-get install expect" >&2
