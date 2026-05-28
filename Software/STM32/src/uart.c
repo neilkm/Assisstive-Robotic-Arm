@@ -65,6 +65,24 @@ static void uart_reset_buffers(void)
     uart_exit_critical(primask);
 }
 
+static void uart_start_tx_locked(void)
+{
+    if ((uart_tx_ring.count == 0u) || ((UART_INSTANCE->SR & USART_SR_TXE) == 0u)) {
+        UART_INSTANCE->CR1 |= USART_CR1_TXEIE;
+        return;
+    }
+
+    UART_INSTANCE->DR = uart_tx_ring.data[uart_tx_ring.tail];
+    uart_tx_ring.tail = uart_advance_index(uart_tx_ring.tail, UART_TX_BUFFER_SIZE);
+    uart_tx_ring.count--;
+
+    if (uart_tx_ring.count > 0u) {
+        UART_INSTANCE->CR1 |= USART_CR1_TXEIE;
+    } else {
+        UART_INSTANCE->CR1 &= ~USART_CR1_TXEIE;
+    }
+}
+
 void uart_init(void)
 {
     GPIO_InitTypeDef gpio_init = {0};
@@ -102,7 +120,7 @@ void uart_write_byte(uint8_t byte)
             uart_tx_ring.data[uart_tx_ring.head] = byte;
             uart_tx_ring.head = uart_advance_index(uart_tx_ring.head, UART_TX_BUFFER_SIZE);
             uart_tx_ring.count++;
-            UART_INSTANCE->CR1 |= USART_CR1_TXEIE;
+            uart_start_tx_locked();
             queued = 1u;
         }
         uart_exit_critical(primask);
