@@ -31,7 +31,7 @@ int main(void)
         }
 
         if ((HAL_GetTick() - last_prompt_tick) >= 5000U) {
-            last_prompt_tick += 5000U;
+            last_prompt_tick = HAL_GetTick();
             UART_WriteString(">\r\n");
         }
     }
@@ -39,17 +39,15 @@ int main(void)
 
 static void SystemClock_Config(void)
 {
-    /*
-     * Simple clock setup using internal HSI at 16 MHz.
-     * This keeps the example portable and avoids relying on
-     * external oscillator configuration.
-     */
-
     RCC_OscInitTypeDef osc = {0};
     RCC_ClkInitTypeDef clk = {0};
 
     __HAL_RCC_PWR_CLK_ENABLE();
 
+    /*
+     * Use HSI 16 MHz.
+     * This is simple and stable for a UART test harness.
+     */
     osc.OscillatorType = RCC_OSCILLATORTYPE_HSI;
     osc.HSIState = RCC_HSI_ON;
     osc.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
@@ -74,4 +72,13 @@ static void SystemClock_Config(void)
         while (1) {
         }
     }
+}
+
+/*
+ * This is the important missing piece.
+ * Without this, HAL_GetTick() may stay stuck at 0 in PlatformIO STM32Cube.
+ */
+void SysTick_Handler(void)
+{
+    HAL_IncTick();
 }
