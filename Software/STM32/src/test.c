@@ -2,17 +2,15 @@
 #include <stdint.h>
 
 #include "stm32f4xx_hal.h"
+#include "stm32_uart_port.h"
 #include "test_format.h"
-#include "UART_common.h"
 
 #define LINE_BUFFER_SIZE 96u
-#define PROMPT_PERIOD_MS 2000u
+#define STATUS_PERIOD_MS 1000u
 
 static void uart_write_char_blocking(char character)
 {
-    while (uart_put_char((uint8_t)character, UART_TIMEOUT_NONE) != UART_OK) {
-        HAL_Delay(1u);
-    }
+    stm32_uart_port_write_tx_byte_blocking((uint8_t)character);
 }
 
 static void uart_format_writer(char character, void *context)
@@ -54,25 +52,25 @@ int main(void)
 {
     char line_buffer[LINE_BUFFER_SIZE];
     size_t line_length = 0u;
-    uint32_t last_prompt_ms = 0u;
+    uint32_t last_status_ms = 0u;
 
     HAL_Init();
-    uart_init();
+    stm32_uart_port_configure_polling();
 
     print_intro_message();
     print_prompt();
-    last_prompt_ms = HAL_GetTick();
+    last_status_ms = HAL_GetTick();
 
     for (;;) {
         uint8_t byte = 0u;
         const uint32_t now_ms = HAL_GetTick();
 
-        if ((now_ms - last_prompt_ms) >= PROMPT_PERIOD_MS) {
+        if ((now_ms - last_status_ms) >= STATUS_PERIOD_MS) {
             print_prompt();
-            last_prompt_ms = now_ms;
+            last_status_ms = now_ms;
         }
 
-        if (uart_get_char(&byte, UART_TIMEOUT_NONE) != UART_OK) {
+        if (stm32_uart_port_read_rx_byte_if_ready(&byte) == 0u) {
             continue;
         }
 
