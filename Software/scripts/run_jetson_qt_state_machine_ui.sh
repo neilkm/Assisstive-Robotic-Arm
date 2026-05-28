@@ -3,9 +3,9 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-BUILD_DIR="${REPO_ROOT}/builds/Jetson"
-APP="${BUILD_DIR}/apps/StateMachine_UI/StateMachine_UI"
-MACOS_APP="${BUILD_DIR}/apps/StateMachine_UI/StateMachine_UI.app/Contents/MacOS/StateMachine_UI"
+APPS_DIR="${REPO_ROOT}/builds/Apps"
+APP="${APPS_DIR}/StateMachine_UI/StateMachine_UI"
+MACOS_APP="${APPS_DIR}/StateMachine_UI/StateMachine_UI.app/Contents/MacOS/StateMachine_UI"
 
 if [[ -x "${MACOS_APP}" ]]; then
     exec "${MACOS_APP}"

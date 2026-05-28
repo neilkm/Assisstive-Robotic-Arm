@@ -2,7 +2,7 @@ include(CMakeParseArguments)
 
 get_filename_component(JETSON_REPO_ROOT "${CMAKE_CURRENT_LIST_DIR}/../../.." ABSOLUTE)
 set(JETSON_BUILD_OUTPUT_DIR "${JETSON_REPO_ROOT}/builds/Jetson" CACHE PATH
-    "Central output directory for Jetson build products")
+    "Central output directory for Jetson build products (libs/bin)")
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${JETSON_BUILD_OUTPUT_DIR}/lib")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${JETSON_BUILD_OUTPUT_DIR}/lib")
@@ -10,9 +10,9 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${JETSON_BUILD_OUTPUT_DIR}/bin")
 
 function(jetsonqt_set_output_directory target_name output_kind)
     if(output_kind STREQUAL "APP")
-        set(output_dir "${JETSON_BUILD_OUTPUT_DIR}/apps/${target_name}")
+        set(output_dir "${JETSON_REPO_ROOT}/builds/Apps/${target_name}")
     elseif(output_kind STREQUAL "TEST")
-        set(output_dir "${JETSON_BUILD_OUTPUT_DIR}/tests/${target_name}")
+        set(output_dir "${JETSON_REPO_ROOT}/builds/UnitTests/${target_name}")
     else()
         set(output_dir "${JETSON_BUILD_OUTPUT_DIR}/bin/${target_name}")
     endif()

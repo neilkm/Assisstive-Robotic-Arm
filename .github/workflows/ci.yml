@@ -1,0 +1,142 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  # ────────────────────────────────────────────────────────────────────────────
+  # Unit tests — pure C++17, no hardware, no Qt, no OpenCV
+  # ────────────────────────────────────────────────────────────────────────────
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y cmake ninja-build g++ libgtest-dev
+
+      - name: Configure
+        run: |
+          cmake -S Testing -B builds/Testing \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DINTEGRATION_TEST_USE_HARDWARE=OFF
+
+      - name: Build
+        run: cmake --build builds/Testing --target \
+          arm_uart_packet_unit_test \
+          esp32_button_packet_unit_test \
+          state_machine_unit_test
+
+      - name: Run unit tests
+        run: |
+          ctest --test-dir builds/Testing \
+            --output-on-failure \
+            -L "^(?!integration)" \
+            --timeout 60
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # Integration tests — virtual socketpair mode, no hardware
+  # ────────────────────────────────────────────────────────────────────────────
+  integration-tests-virtual:
+    name: Integration Tests (Virtual)
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y cmake ninja-build g++ libgtest-dev
+
+      - name: Configure
+        run: |
+          cmake -S Testing -B builds/Testing \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DINTEGRATION_TEST_USE_HARDWARE=OFF
+
+      - name: Build integration tests
+        run: cmake --build builds/Testing --target \
+          uart_integration_test \
+          bluetooth_integration_test
+
+      - name: Run integration tests (virtual)
+        run: |
+          ctest --test-dir builds/Testing \
+            --output-on-failure \
+            -L integration \
+            --timeout 120
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # Existing protocol roundtrip tests
+  # ────────────────────────────────────────────────────────────────────────────
+  protocol-roundtrip-tests:
+    name: Protocol Roundtrip Tests
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y cmake ninja-build g++
+
+      - name: Build + test UART protocol
+        run: |
+          cmake -S Software/Jetson/UartProtocol \
+                -B builds/JetsonUartProtocol -G Ninja
+          cmake --build builds/JetsonUartProtocol
+          ctest --test-dir builds/JetsonUartProtocol --output-on-failure
+
+      - name: Build + test Bluetooth protocol
+        run: |
+          cmake -S Software/Jetson/Esp32BluetoothProtocol \
+                -B builds/JetsonEsp32BluetoothProtocol -G Ninja
+          cmake --build builds/JetsonEsp32BluetoothProtocol
+          ctest --test-dir builds/JetsonEsp32BluetoothProtocol --output-on-failure
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # Qt unit tests — StateMachineController (guiless, no display needed)
+  # ────────────────────────────────────────────────────────────────────────────
+  qt-unit-tests:
+    name: Qt Unit Tests
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Qt5 + OpenCV + build tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y \
+            cmake ninja-build g++ \
+            qtbase5-dev qtmultimedia5-dev qtdeclarative5-dev \
+            qml-module-qtquick2 qml-module-qtquick-controls2 \
+            libopencv-dev
+
+      - name: Configure Qt app
+        run: |
+          cmake -S Software/Jetson/QtApp \
+                -B builds/Jetson \
+                -G Ninja \
+                -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build Qt unit tests only
+        run: cmake --build builds/Jetson --target state_machine_controller_qtest
+
+      - name: Run Qt unit tests
+        run: |
+          ctest --test-dir builds/Jetson \
+            --output-on-failure \
+            -R state_machine_controller_qtest \
+            --timeout 60
