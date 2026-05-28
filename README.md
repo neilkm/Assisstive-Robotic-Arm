@@ -49,7 +49,7 @@ Software/
   Mac/
     AprilTags/             AprilTag PDF generator
   sandbox/                 Experimental apps (apriltag-ik, camera-test, …)
-Testing/                   Unified C++ test suite (unit + integration)
+  Testing/                 Unified C++ test suite (unit + integration)
 Electrical/                Electrical design
 Mechanical/                Mechanical design
 ```

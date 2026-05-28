@@ -91,7 +91,7 @@ build_tests() {
         esac
     done
     info "Building test suite (hardware=${use_hardware})"
-    cmake -S "${REPO_ROOT}/Testing" \
+    cmake -S "${REPO_ROOT}/Software/Testing" \
           -B "${BUILDS_DIR}/Testing" \
           -G Ninja \
           -DCMAKE_BUILD_TYPE=Release \

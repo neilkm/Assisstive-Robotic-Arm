@@ -24,7 +24,7 @@ jobs:
 
       - name: Configure
         run: |
-          cmake -S Testing -B builds/Testing \
+          cmake -S Software/Testing -B builds/Testing \
             -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DINTEGRATION_TEST_USE_HARDWARE=OFF
@@ -60,7 +60,7 @@ jobs:
 
       - name: Configure
         run: |
-          cmake -S Testing -B builds/Testing \
+          cmake -S Software/Testing -B builds/Testing \
             -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DINTEGRATION_TEST_USE_HARDWARE=OFF

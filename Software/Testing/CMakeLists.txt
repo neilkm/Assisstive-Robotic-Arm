@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-get_filename_component(REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/.." ABSOLUTE)
+get_filename_component(REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
 
 set(UNIT_TEST_OUTPUT_DIR "${REPO_ROOT}/builds/UnitTests" CACHE PATH "Unit test output directory")
 set(INTEGRATION_TEST_OUTPUT_DIR "${REPO_ROOT}/builds/IntegrationTests" CACHE PATH "Integration test output directory")
