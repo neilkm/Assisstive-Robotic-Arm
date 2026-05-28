@@ -2,59 +2,33 @@
 #include <stdint.h>
 
 #include "stm32f4xx_hal.h"
-#include "test_format.h"
-#include "UART_common.h"
+#include "uart.h"
 
 #define LINE_BUFFER_SIZE 96u
 #define STATUS_PERIOD_MS 1000u
 
-static void uart_write_char_blocking(char character)
+static void print_intro(void)
 {
-    while (uart_put_char((uint8_t)character, UART_TIMEOUT_NONE) != UART_OK) {
-        HAL_Delay(1u);
-    }
-}
-
-static void uart_format_writer(char character, void *context)
-{
-    (void)context;
-    uart_write_char_blocking(character);
-}
-
-static void uart_write_string_blocking(const char *string)
-{
-    if (string == NULL) {
-        return;
-    }
-
-    while (*string != '\0') {
-        uart_write_char_blocking(*string);
-        string++;
-    }
-}
-
-static void print_intro_message(void)
-{
-    common_test_write_text(uart_format_writer, NULL, "\r\n");
-    common_test_write_text(uart_format_writer, NULL, "==============================\r\n");
-    common_test_write_text(uart_format_writer, NULL, "   STM32 UART Test Harness\r\n");
-    common_test_write_text(uart_format_writer, NULL, "==============================\r\n");
-    common_test_write_text(uart_format_writer, NULL, "\r\n");
-    common_test_write_text(uart_format_writer, NULL, "Enter text then press Return\r\n");
-    common_test_write_text(uart_format_writer, NULL, "STM32 echoes each message\r\n");
-    common_test_write_text(uart_format_writer, NULL, "\r\n> ");
+    uart_write_string("\r\n");
+    uart_write_string("==============================\r\n");
+    uart_write_string("   STM32 UART Test Harness\r\n");
+    uart_write_string("==============================\r\n");
+    uart_write_string("\r\n");
+    uart_write_string("Enter text then press Return\r\n");
+    uart_write_string("STM32 echoes each message\r\n");
+    uart_write_string("\r\n> ");
 }
 
 static void print_prompt(void)
 {
-    uart_write_string_blocking("\r\n> ");
+    uart_write_string("\r\n> ");
 }
 
 static void echo_line(const char *line)
 {
-    uart_write_string_blocking("\r\nReceived: [");
-    uart_write_string_blocking(line);
-    uart_write_string_blocking("]\r\n");
+    uart_write_string("\r\nReceived: [");
+    uart_write_string(line);
+    uart_write_string("]\r\n");
 }
 
 int main(void)
@@ -66,7 +40,7 @@ int main(void)
     HAL_Init();
     uart_init();
 
-    print_intro_message();
+    print_intro();
     last_status_ms = HAL_GetTick();
 
     for (;;) {
@@ -78,7 +52,7 @@ int main(void)
             last_status_ms = now_ms;
         }
 
-        if (uart_get_char(&byte, UART_TIMEOUT_NONE) != UART_OK) {
+        if (uart_read_byte_if_ready(&byte) == 0u) {
             continue;
         }
 
