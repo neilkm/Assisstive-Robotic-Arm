@@ -3,6 +3,9 @@
 
 #include <stdint.h>
 
+#define UART_RX_BUFFER_SIZE 128u
+#define UART_TX_BUFFER_SIZE 256u
+
 void uart_init(void);
 void uart_write_byte(uint8_t byte);
 void uart_write_string(const char *string);
