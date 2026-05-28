@@ -1,68 +1,33 @@
-Useful commands:
+# ESP32
 
-#monitor serial port
-pio device monitor -p /dev/ttyUSB0 -b 115200 --filter time
+PlatformIO firmware for the ESP32 button-input board (Bluetooth Classic SPP).
 
-#build clean upload
-pio run 
-pio run -t clean
-pio run -t upload
+## Environments
 
-#build and upload from the repository root
-Software/scripts/build_and_flash_esp32_app.sh
+| Environment | Mode flag | Description |
+|-------------|-----------|-------------|
+| `esp32dev` | _(none)_ | Random button telemetry — production transport test |
+| `esp32dev_bluetooth_echo_test` | `-DESP32_BT_ECHO_TEST` | Bluetooth UART echo test |
 
-## Bluetooth random button test firmware
+Build or flash via `arm.sh`:
 
-This app advertises a Bluetooth Classic SPP service named `ArmESP32Buttons`.
-The Jetson pairs/trusts that device and binds it to `/dev/rfcomm0` before
-running the listener in `Software/Jetson/Esp32BluetoothProtocol`.
+```bash
+./arm.sh build esp32 normal
+./arm.sh flash esp32 normal
+./arm.sh flash esp32 echo
+```
 
-This is currently a transport test. It does not read physical GPIOs yet; each
-fresh state packet contains a new random six-bit button mask. If an ACK is not
-received, the firmware retransmits the same sequence and mask.
-
-Build:
+Or directly with PlatformIO:
 
 ```bash
 pio run -d Software/ESP32 -e esp32dev
-```
-
-Upload:
-
-```bash
 pio run -d Software/ESP32 -e esp32dev -t upload
 ```
 
-Run the Jetson-side full test:
+## Layout
 
-```bash
-Software/Jetson/Esp32BluetoothProtocol/tests/test_esp32_bluetooth_protocol.py --device /dev/rfcomm0
 ```
-
-Flash only the active random button test:
-
-```bash
-Software/ESP32/scripts/flash_random_button_test.py
-```
-
-## Bluetooth UART echo test firmware
-
-This separate test mode validates interactive Bluetooth UART text traffic.
-After pairing, the ESP32 sends a banner over Bluetooth. The Jetson test script
-prompts repeatedly for strings, sends each one over `/dev/rfcomm0`, and expects
-the ESP32 to echo each one as `Rx [message]`. Stop the Jetson script with
-Ctrl-C. The script reports pair/bind time and write-to-echo roundtrip time for
-each message.
-
-Run the full Jetson-side echo test:
-
-```bash
-Software/Jetson/Esp32BluetoothProtocol/tests/test_bluetooth_echo.py --device /dev/rfcomm0
-```
-
-Build or upload the echo firmware directly:
-
-```bash
-pio run -d Software/ESP32 -e esp32dev_bluetooth_echo_test
-pio run -d Software/ESP32 -e esp32dev_bluetooth_echo_test -t upload
+include/esp32_button_packet.h   Shared packet framing (magic 0xB7 0x32, CRC-16)
+src/main.c                      Firmware source
+scripts/flash_random_button_test.py   Flash helper
 ```
