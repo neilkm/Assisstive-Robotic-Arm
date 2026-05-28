@@ -40,7 +40,7 @@ int main(void)
 
     print_intro();
 
-    for (;;) {
+    while (1) {
         uint8_t byte = 0u;
 
         if (uart_read_byte_if_ready(&byte) == 0u) {
