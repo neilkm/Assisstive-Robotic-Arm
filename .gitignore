@@ -49,6 +49,7 @@ target/
 # local agent instructions
 AGENTS.md
 CLAUDE.md
+.claude/
 
 # local secrets
 /secrets.env
